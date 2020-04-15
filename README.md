@@ -22,4 +22,4 @@ Sur l'écran, tout le monde peut voir la partie se dérouler.
 
 Respectez les règles du tarot en jouant, le jeu ne vérifie pas. Pas de "je coupe et j'en rejoue".
 
-À la fin, le jeu compte les points du preneur et propose une seconde partie.
+À la fin, le jeu compte les points du preneur et propose de jouer une nouvelle partie.
