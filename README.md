@@ -10,11 +10,13 @@ Vous êtes prêts. Lancez tarot.GUI (python tarot.GUI). Vous avez besoin de Pyth
 
 Pour le moment on peut joueur uniquement à 4 joueurs. Chaque joueur a une main de 18 cartes et il y a 6 cartes au chien. Pas de garde sans ni contre le chien non plus pour le moment...
 
+## La partie
+
 Ensuite le jeu démarre. Pour chaque distribution, les joueurs reçoivent leur main de cartes pas courriel.
 
 Le jeu se fait par visioconférence, choisissez celle de votre choix, partagez votre écran avec les joueurs.
 
-Ensuite, on joue normalement. Le preneur fait son écart, puis chacun indique la carte qu'il veut joueur.
+Ensuite, on joue normalement. Le preneur fait son écart, puis chacun indique la carte qu'il veut joueur. C'est l'organisateur qui saisit la carte jouée tour à tour par chacun des joueurs. Les abréviations sont par exemple : 1 pour le petit, 5 pour le 5 d'atout, e pour l'excuse, 5tr pour le 5 de trèfle, rpi pour le roi de pique.
 
 Sur l'écran, tout le monde peut voir la partie se dérouler.
 
