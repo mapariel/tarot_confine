@@ -33,7 +33,7 @@ ENCHERE_CONTRE = 103
 MESSAGE={
      PRET : ["Le jeu est prêt pour la distribution.",""],
      DISTRIBUE : ["{} a distribué le jeu. Prenez connaissance de vos cartes.",""],
-     PRISE : ["Qui prend ?","{} a pris.",""],
+     PRISE : ["Qui prend ? [-1/0/1/2/...]","{} a pris.",""],
      AFFICHAGE_CHIEN : ["Voici le chien:",""],
      ECART : ["{} doit faire son écart",""],
      PASSE : ["Tout le monde a passé.",""],
@@ -41,7 +41,7 @@ MESSAGE={
      PLI_FINI  : ["{} a emporté le pli.","L'excuse revient à {} en ećhange d'une carte."],
      PARTIE_FINIE : ["La partie est finie. Voici l'écart de {} :",""],
      AFFICHAGE_SCORE : ["{} a marqué {:.1f} points.",""],
-     PARTIE_TERMINEE : ["La partie est terminée. Recommencer ?(O/n) ",""],
+     PARTIE_TERMINEE : ["La partie est terminée. Recommencer ?[O/n] ",""],
      CARTES_RASSEMBLEES : ["Le jeu est prêt. Couper.",""]
     }
 
@@ -61,6 +61,8 @@ class Carte:
     def __str__(self):
         return self.nom
     def __eq__(self,other):
+        if not other : 
+            return False
         return self.valeur==other.valeur
     def __lt__(self,other):
         return self.valeur < other.valeur
@@ -78,17 +80,40 @@ class Joueur:
             main = sorted(main,key = lambda x:x.famille )
             return([carte for carte in main ] ) 
 
-    # retourne la carte de ce joueur qui correspond à l'abbréviation
-    def joue(self,abbr):
-        
+    # 
+    def joue(self,abbr,famille):
+        """
+        retourne la carte de ce joueur qui correspond à l'abbréviation
+        quand l'abbréviation est courte (1 caractère) envoie la carte de la famille
+        si elle existe.
+        Il y a le problème de l'écart....
+        """
+        carte =None
+        #if famille :
+        #    if famille != 'atout':
+        #        if len(abbr)==1 or abbr=='10':
+        #            abbr = abbr+famille[0:2]
+        #            carte =  self.main.pop(abbr,None)
+        #if carte is None :    
         carte =  self.main.pop(abbr,None)
         return carte
         
 # un pli correspond à un tour de jeu
 # lorque tout le monde a joué, le pli détermine le gagnant        
 class Pli:
-    def __init__(self,cartes=[None,None,None,None],entame_index=0):
-        self.cartes = cartes
+    """
+    Ce sont les cartes jouées sur la table lors d'un pli
+    Lorsqu'il y a un mort, cela signifie qu'un des joueursne joue pas (en général c'est le donneur)
+    """
+    def __init__(self,n,entame_index):
+        """
+        Args :
+            n : le nombre de joueurs
+        """
+        self.cartes = [None]*n
+        self.mort = False
+        if n==5 :
+            self.mort = True
         self.entame_index = entame_index
     
     
@@ -107,16 +132,22 @@ class Pli:
             False sinon
         """
         n = sum([1 for carte in self.cartes if carte])
-        if n==len(self.cartes) : return True
+        if self.mort :
+            n = n+1
+        if n==len(self.cartes) : 
+            return True
         return False
     
     # détermine le gagnant de ce pli
-    def gagnant(self):  
-        atouts =[0,0,0,0]
-        for i in range(4):
-            if self.cartes[i].famille=="atout":
-                atouts[i] = self.cartes[i].valeur
-        # teste s'il y a des atouts
+    def gagnant(self): 
+        n = len(self.cartes) 
+        atouts =[0]*n
+        for i in range(n):
+            carte = self.cartes[i]
+            if carte :
+                if self.cartes[i].famille=="atout":
+                    atouts[i] = self.cartes[i].valeur
+                # teste s'il y a des atouts
         atouts = np.array(atouts)
         maxi = np.max(atouts)
         g = np.argmax(atouts)
@@ -124,11 +155,16 @@ class Pli:
   
         # cas particulier ou l'excuse est jouee en premier
         if self.cartes[self.entame_index].abbr=='e':
-            self.entame_index = (self.entame_index+1)%4 
-        valeurs=[0,0,0,0]
-        for i in range(4):
-            if self.cartes[i].famille==self.cartes[self.entame_index].famille:
-                valeurs[i] = self.cartes[i].valeur
+            self.entame_index = (self.entame_index+1)%n
+            # quand le suivant est le mort
+            if not self.cartes[self.entame_index]:
+                self.entame_index = (self.entame_index+1)%n
+        valeurs=[0]*n
+        for i in range(n):
+            carte = self.cartes[i]
+            if carte :
+                if self.cartes[i].famille==self.cartes[self.entame_index].famille:
+                    valeurs[i] = self.cartes[i].valeur
         valeurs = np.array(valeurs)
         g = np.argmax(valeurs)
         return g
@@ -160,7 +196,7 @@ class Partie:
     
     
     
-    def __init__(self,noms_joueurs,donneur_index=0,distributeur=None,debug=False):
+    def __init__(self,n_joueurs=4,donneur_index=0,distributeur=None,debug=False):
         """
         Débute la partie, crée le jeu, le mélange, initialise le donneur,
         l'entame, le joueur, le chien et les levées
@@ -170,17 +206,19 @@ class Partie:
          distributeur : s'occupe d'envoyer les mails pour la distribution
         """   
         self.distributeur = distributeur
-        self.jeu= []
-        self.joueurs = [Joueur(nom=n)  
-                    for  n in noms_joueurs]
+        # initialise les joueurs
         self.donneur_index = donneur_index
-        # charge le jeu de cartes
         self.preneur_index = -1 # pas de preneur
-        self.joueur_index = (donneur_index+1)%self.nombre()
-        self.entame_index = self.joueur_index
+        self.joueur_index = 1
+        self.entame_index  = 1
+        self.initialise_joueurs(n_joueurs=n_joueurs)
         
+        self.jeu= []
+        
+        # charge le jeu de cartes
+    
         self.chien= []
-        self.pli = Pli(entame_index=self.entame_index)
+        self.pli = Pli(n=self.nombre(),entame_index=self.entame_index)
         
         self.levee = [[],[]]
         self.enchere = ENCHERE_NORMAL
@@ -202,13 +240,45 @@ class Partie:
         # pour tester si la logique fonctionnne
         #self.jeu =self.jeu[:18] 
         
-            
+    def initialise_joueurs(self,n_joueurs=4):
+        if self.distributeur:
+            self.joueurs = [Joueur(nom=n)  
+                        for  n in self.distributeur.noms]
+        else :
+            noms = ['joueur '+str(i) for i in range(n_joueurs) ]
+            self.joueurs = [Joueur(nom=n)  
+                        for  n in noms]
+        # au cas où le nombre de joueurs a changé depuis la partie précédente
+        self.donneur_index = self.donneur_index%self.nombre()
+        self.joueur_index = self.index_direction_suivante(self.donneur_index)
+        self.entame_index = self.joueur_index
+        self.pli = Pli(n=self.nombre(),entame_index=self.entame_index)
+        
+    
+    
     def nombre(self):
         """
         Returns :
             nombre : le nombre de joueurs
         """
         return len(self.joueurs)
+    
+    def index_direction_suivante(self,index_courant,sens=1):
+        """
+        Lors d'une partie, donne l'index du porchain joueur. Lors d'une partie à 5, le donneur ne participe pas
+        Args :
+            index_courant : l'index courant
+            sens : vaut 1 par défaut, si c'est -1, alors on obtient l'index du joueur précédent
+        Returns:
+            index_suivant
+        """
+        index_courant = (index_courant+sens)%self.nombre()
+        # à 5, le donneur ne prend pas part au jeu
+        if self.nombre()==5 and index_courant == self.donneur_index:
+            
+            index_courant = (index_courant+sens)%self.nombre()
+        return index_courant   
+        
     
     def suivant(self,joueur):
         """
@@ -286,7 +356,7 @@ class Partie:
         """
         restes = [ len(j.main)  for j in self.joueurs ]
         restes = sorted(restes)
-        if restes == [0,0,0,6] :
+        if restes == [0]*(self.nombre()-1)+[6] :
             return True
         
         return False
@@ -303,13 +373,14 @@ class Partie:
                 return None
             
         if self.etat == PRET :
-            # distribue le chien
-            
+                       
+            #distribue le chien
             index_chien = np.arange(21)
             index_chien = np.random.choice(index_chien,6,replace=False)
             index_chien.sort()
-            print(index_chien)
-            direction = (self.donneur_index+1)%self.nombre()
+            #print(index_chien)
+            direction = self.index_direction_suivante(self.donneur_index)
+            #direction = (self.donneur_index+1)%self.nombre()
             tour = 0
             while(len(self.jeu)>0):
                  for i in range(3):
@@ -326,8 +397,9 @@ class Partie:
                          self.chien.append(carte)
                          index_chien = index_chien[1:]
                  tour = tour +1     
-                     
-                 direction = (direction+1)%self.nombre()
+                 
+                 direction = self.index_direction_suivante(direction)
+                 #direction = (direction+1)%self.nombre()
         return True  # tout se passe bien        
                   
                  
@@ -343,6 +415,7 @@ class Partie:
         #index = self.joueurs.index(preneur)
         if self.etat==PRISE :
             self.etat = AFFICHAGE_CHIEN 
+            
             self.preneur_index = index
             
             if index != -1 :  # quelqun a pris
@@ -365,8 +438,21 @@ class Partie:
      
                 
                 
-    
+    def annuler_coup(self):
+        """
+        Lorsqu'un pli est en cours, cela annule la dernière carte jouée
+        """
+        self.joueur_index = self.index_direction_suivante(self.joueur_index,sens=-1)
+        #self.joueur_index = (self.joueur_index-1)%self.nombre()  
+        carte = self.pli.cartes[self.joueur_index]
+        self.joueur().main[carte.abbr]=carte
+        self.pli.cartes[self.joueur_index]=None
+        return  self.pli.cartes,False
 
+
+
+        
+        
             
     def jouer(self,abbr):
          """
@@ -379,19 +465,29 @@ class Partie:
             l'attaque ou de la défense
            True : le pli est terminé
                
-         """  
-         joueur = self.joueur()
-         if self.debug :
-             abbr = list(joueur.main.values())[0].abbr         
-         carte = joueur.joue(abbr)
-         cartes = self.pli.cartes
-         # la carte jouée n'existe pas
-         if carte is None : 
-             return [],False
- 
-         self.pli.ajoute(self.joueur_index,carte)
-         self.joueur_index = (self.joueur_index+1)%self.nombre()  
-         return cartes,self.pli.complet()
+         """
+         
+         if self.etat == PLI_EN_COURS : 
+             joueur = self.joueur()
+             if self.debug :
+                 try :
+                     abbr = list(joueur.main.values())[0].abbr         
+                 except IndexError:
+                     print('IndexError')
+             famille = None        
+             if self.joueur_index != self.entame_index:
+                famille = self.pli.cartes[self.entame_index].famille
+                
+             carte = joueur.joue(abbr,famille)
+             cartes = self.pli.cartes
+             # la carte jouée n'existe pas
+             if carte is None : 
+                 return [],False
+     
+             self.pli.ajoute(self.joueur_index,carte)
+             self.joueur_index = self.index_direction_suivante(self.joueur_index)
+             #self.joueur_index = (self.joueur_index+1)%self.nombre()  
+             return cartes,self.pli.complet()
     
     def emporter_pli(self):
             """
@@ -412,6 +508,8 @@ class Partie:
             if self.echange == -1 :
                 # l'excuse est dans le pli
                 for i,carte in enumerate(self.pli.cartes) :
+                    if not carte:
+                        continue 
                     if carte.abbr == 'e':
                         excuse_trouvee = True
                         excuse = carte
@@ -432,19 +530,19 @@ class Partie:
                 
                     
 
-
-            self.entame_index = (gagnant_index)%self.nombre()
+            self.entame_index  = gagnant_index
+            #self.entame_index = (gagnant_index)%self.nombre()
             self.joueur_index = self.entame_index 
              # ajouter les cartes aux levees de l'attaque ou de la défense
             if gagnant_index == self.preneur_index:
-                self.levee[0]= self.levee[0]+self.pli.cartes
+                self.levee[0]= self.levee[0]+[carte for carte in self.pli.cartes if carte]
             else :
-                 self.levee[1]=self.levee[1]+self.pli.cartes
+                 self.levee[1]=self.levee[1]+[carte for carte in self.pli.cartes if carte]
             if excuse_echangee : 
                 self.levee[self.echange] = self.levee[self.echange]+[excuse]
              # initialise le pli
-            self.pli.cartes = [None,None,None,None]
-            self.pli.entame_index = self.entame_index
+            self.pli = Pli(self.nombre(),self.entame_index)
+            #self.pli.entame_index = self.entame_index
             
             return excuse_echangee
 
@@ -463,7 +561,7 @@ class Partie:
             
             if self.echange != -1 :
                 for carte in self.levee[self.echange]:
-                    if carte.valeur == 0.5:
+                    if carte.points == 0.5:
                         break
                 print("carte echangee :",carte.abbr)    
                 self.levee[self.echange].remove(carte)
@@ -482,8 +580,11 @@ class Partie:
          Les joueurs ont accepté de rejouer une partie
          """
          self.echange = -1  # pour l'echange de l'excuse
-         # remet les levées dans les tas de cartes
-         self.jeu = self.levee[0]+self.levee[1]
+
+         # pour une partie interrompue, il faut remettre les cartes du pli dans le jeu
+         self.jeu =  [ carte for carte in self.pli.cartes if carte ]
+         # remet les levées dans les tas de cartes         
+         self.jeu = self.jeu +self.levee[0]+self.levee[1]
          self.levee[0]=[]
          self.levee[1]=[]
          # ajoute les cartes qui restent dans les mains
@@ -492,12 +593,12 @@ class Partie:
             self.jeu = self.jeu+liste
             j.main = {} # plus de cartes dans les mains
          #ajoute le chien
-         
+        
          self.jeu = self.jeu+self.chien
          self.chien = []
          self.donneur_index = (self.donneur_index+1)%self.nombre()
-         if self.debug :
-             print("ligne 483 ",len(self.jeu))
+         self.pli = Pli(self.nombre(),(self.donneur_index+1)%self.nombre())
+
          
          
 
@@ -509,7 +610,8 @@ class Partie:
         puis coupe le jeu
         """
         if self.etat==CARTES_RASSEMBLEES:
-            self.jeu = self.jeu[:15]+self.jeu[15:]
+            coupe = np.random.binomial(78,0.5)
+            self.jeu = self.jeu[:coupe]+self.jeu[coupe:]
 
 
 
@@ -518,7 +620,9 @@ class Partie:
         retourne le message correspondant à l'etat du jeu
         """
         message = MESSAGE[self.etat][0]
-        if self.etat == DISTRIBUE :
+        if self.etat == PRET :
+            pass
+        elif self.etat == DISTRIBUE :
             message = message.format(str(self.donneur()))
             # affiche toutes les cartes des joueurs
 
@@ -527,7 +631,8 @@ class Partie:
             message = message.format(self.preneur())
         elif self.etat == PLI_EN_COURS :
             # affiche les cartes du joueurs
-            print(self.affiche(joueur_index = self.joueur_index))
+            if self.debug:
+                print(self.affiche(joueur_index = self.joueur_index))
             message = message.format(self.joueur())
         elif self.etat == PLI_FINI :
             gagnant = self.gagnant()
@@ -547,24 +652,24 @@ class Partie:
             message : le message de cette action
             cartes  : un tableau ['1','3','2tr'] contenant les abbréviations des cartes
         """
-        if entry_input == 'FIN':
-            return 'FIN',[]
         message = MESSAGE[self.etat][1]
         cartes = []
-        if self.etat == PRET:
+        if entry_input == 'FIN':
+            self.etat = PARTIE_TERMINEE
+        elif self.etat == PRET:
             if self.distribuer() :
                 self.etat = DISTRIBUE
         elif self.etat == DISTRIBUE :
             # les jeux ne sont pas envoyés par email
             if not self.distributeur:
                 print(self.affiche()) 
+            # les jeux sont distribués par le distributeur
             else :
                 self.distributeur.send(self)    
 
             self.etat = PRISE
         elif self.etat == PRISE :
-            if entry_input in ['-1','0','1','2','3']:
-                if self.prise(int(entry_input)):
+            if self.prise(int(entry_input)):
                     message = message.format(self.preneur())
         elif self.etat == AFFICHAGE_CHIEN:
             cartes = [carte.abbr for carte in self.chien]
@@ -574,27 +679,41 @@ class Partie:
         elif self.etat == ECART:
             self.etat = PLI_EN_COURS
         elif self.etat == PLI_EN_COURS :
-            cartes,complet = self.jouer(entry_input)
-            if cartes :
+            if entry_input == 'VOIR':
+                message =self.affiche(joueur_index = self.joueur_index)
+            if entry_input=='A':
+                cartes,_ = self.annuler_coup()
                 cartes = [(carte.abbr if carte  else "_") for carte in cartes]
-            if complet :
-                self.etat = PLI_FINI
-        elif self.etat == PLI_FINI:
-            echange_excuse = self.emporter_pli()
-            if echange_excuse  :
-                if self.echange == 0 :
-                    message = message.format("l'attaque")
-                elif self.echange == 1 :    
-                    message = message.format("la défense")
-            else :
-                message = ''
-            
-            if self.finie():
-                self.etat = PARTIE_FINIE
-            else :
                 self.etat = PLI_EN_COURS
-                cartes = []
+                message = "Le coup est annulé."
+            else :
+                cartes,complet = self.jouer(entry_input)
+                if cartes :
+                    cartes = [(carte.abbr if carte  else "_") for carte in cartes]
+                    if complet :
+                        self.etat = PLI_FINI
+        elif self.etat == PLI_FINI:
+            if entry_input=='A':
+                cartes,_ = self.annuler_coup()
+                cartes = [(carte.abbr if carte  else "_") for carte in cartes]
+                self.etat = PLI_EN_COURS
+                message = "Le coup est annulé."
+            else :
+                echange_excuse = self.emporter_pli()
+                if echange_excuse  :
+                    if self.echange == 0 :
+                        message = message.format("l'attaque")
+                    elif self.echange == 1 :    
+                        message = message.format("la défense")
+                else :
+                    message = ''
                 
+                if self.finie():
+                    self.etat = PARTIE_FINIE
+                else :
+                    self.etat = PLI_EN_COURS
+                    cartes = []
+                    
 
         elif self.etat == PASSE:
             self.etat = PARTIE_TERMINEE
@@ -612,6 +731,8 @@ class Partie:
                 self.rejouer()
                 self.etat = CARTES_RASSEMBLEES
         elif self.etat == CARTES_RASSEMBLEES:
+            if self.debug:
+                partie.initialise_joueurs(n_joueurs = np.random.randint(3,5) )
             self.couper()
             self.etat = PRET               
            
@@ -622,10 +743,9 @@ class Partie:
 
 
 if __name__ == "__main__":
-    joueurs = ['Martin','Pierrot','Georges','Thomas']
     score = 0
     donneur = int(input("Premier donneur : "))
-    partie = Partie(joueurs,donneur_index=donneur,debug=True)
+    partie = Partie(donneur_index=donneur,n_joueurs=5,debug=True)
     
     while True:
         

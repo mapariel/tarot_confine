@@ -39,9 +39,12 @@ class Distributeur:
     def send(self,partie):
         now = time.localtime(time.time())
         now = time.strftime("%H:%M", now)
-        for i in range(4):
+        for i in range(len(self.noms)):
+            if len(partie.joueurs[i].main)==0:
+                continue
+            
             msg = EmailMessage()
-            texte = "{}, voici vos carte pour cette nouvelle partie. \n".format(self.noms[i])
+            texte = "{}, voici vos cartes pour cette nouvelle partie. \n".format(self.noms[i])
             
             
             msg.set_content(texte+partie.affiche(i))
@@ -57,9 +60,9 @@ class Distributeur:
                 s.quit()
                 
             
-                print('Email sent!')
+                print('Le jeu de {}  lui a été envoyé par email à {}.'.format(self.noms[i],self.emails[i]))
             except:
-                print('Something went wrong...')       
+                print("{} n'a pas recu son jeu.".format(self.noms[i]))       
             
 
 

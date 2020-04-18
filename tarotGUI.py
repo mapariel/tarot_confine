@@ -12,10 +12,11 @@ import tarot as tr
 import PIL as pil  # ImageTk,Image
 import PIL.ImageTk as pitk
 from mail import Distributeur
+from tarot import CARTES_RASSEMBLEES
 import numpy as np
 import time
 #coord = [[300,200],[200,300],[300,400],[400,300]] +np.random.normal(loc=0.0, scale=10,size =(4,2))
- 
+
 
 
 def affiche_noms():
@@ -24,12 +25,17 @@ def affiche_noms():
     """
     global width,height
 
-    coord_noms = [[width/2,100],[100,height/2],
-             [width/2,height-100],[width-100,height/2]]
-    
-    for i in range(4):
+    n = partie.nombre()
+    angles = np.arange(n)
+    angles = angles*2*np.pi/n
+    angles = np.array(angles)
+    centre = np.array([width/2,height/2])
+    centre.shape=(2,1)
+    coord_noms = centre+350*np.vstack((np.cos(-angles),np.sin(-angles)))
+    #coord_noms = np.array([[width],[height]])+coord_noms
+    for i in range(n):
         nom = str(i)+'_'+str(partie.joueurs[i])
-        canvas.create_text(coord_noms[i][0],coord_noms[i][1],fill="darkblue"
+        canvas.create_text(coord_noms[0,i],coord_noms[1,i],fill="darkblue"
                 ,font="Times 20 italic bold",text=nom  )
     canvas.update()    
     
@@ -41,22 +47,29 @@ def affiche_cartes(cartes):
     """
     global images_cartes
     # les joueurs sont 0: Nord, 1 : Ouest, 2 :sud, 3. Est
-    coord = [[width/2,height/2-100],[width/2-100,height/2],
-             [width/2,height/2+100],[width/2+100,height/2]]
-    if len(cartes)==4:
+
+    if len(cartes)<6:
+        n = partie.nombre()
+        angles = np.arange(n)
+        angles = angles*2*np.pi/n
+        angles = np.array(angles)
+        centre = np.array([width/2,height/2])
+        centre.shape=(2,1)
+        coord = centre+100*np.vstack((np.cos(-angles),np.sin(-angles)))
+
         cartes = cartes[partie.entame_index:]+cartes[:partie.entame_index]
-        coord = coord[partie.entame_index:]+coord[:partie.entame_index]
-        for i in range(4):
+        coord = np.hstack((coord[:,partie.entame_index:],coord[:,:partie.entame_index]))
+        for i in range(n):
             carte = cartes[i]
             if carte != '_':
               img = images_cartes[carte]
               #img = pitk.PhotoImage(img)
-              canvas.create_image(coord[i][0],coord[i][1],image=img) 
+              canvas.create_image(coord[0,i],coord[1,i],image=img) 
     else :
         x = 200
         dx = width-500
         # affichage du chien ou de l'écart
-        if len(cartes)<7 : 
+        if len(cartes)==6 : 
             for i,carte in enumerate(cartes) :
                 img = images_cartes[carte]
                 #img = pitk.PhotoImage(img)
@@ -78,7 +91,6 @@ def affiche_cartes(cartes):
                     canvas.update()
                 except StopIteration:
                     break
-                
 
         
 def maj_partie(event):
@@ -87,6 +99,16 @@ def maj_partie(event):
     global partie
     global instruction
 
+
+    # après chaque partie 
+    # les joueurs peuvent changer
+    if partie.etat == CARTES_RASSEMBLEES:
+        distributeur = Distributeur()
+        partie.distributeur = distributeur
+        partie.initialise_joueurs()
+        canvas.delete("all")
+        
+        affiche_noms()
 #    img = images_cartes[abbr]
 #    canvas.create_image(coord[i][0],coord[i][1],image=img)   
 #    i = (i+1)%4
@@ -144,7 +166,7 @@ if __name__ == '__main__':
     canvas.pack(fill='x') 
 
     
-    output_text = tkS.ScrolledText(frame2,height=20,width=40,state='normal')
+    output_text = tkS.ScrolledText(frame2,height=40,width=40,state='normal')
     output_text.configure(font=fontText)
     output_text.pack(fill='y')
     
@@ -161,10 +183,9 @@ if __name__ == '__main__':
     # une carte posée sur le tapis
     
     distributeur = Distributeur()               
-    joueurs = distributeur.noms 
     
-    donneur = int(input("Premier donneur : "))
-    partie = tr.Partie(joueurs,donneur_index=donneur,distributeur=distributeur)
+    #donneur = int(input("Premier donneur : "))
+    partie = tr.Partie(donneur_index=0,distributeur=distributeur)
 
 
 #    https://stackoverflow.com/questions/43435805/photoimage-instance-has-no-attribute-resize
