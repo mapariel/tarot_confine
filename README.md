@@ -29,7 +29,7 @@ FIN : arrêter une partie en cours de jeu
 
 A : annuler la carte posée par le joueur. La carte revient dans son jeu et il doit en joueur une autre
 
-VOIR : tout le monde voit les cartes restantes du joueur. En fin de partie, il arrive qu'à la suite d'erreur, un joueur ne sache plus bien quelle carte il a en main...
+VOIR : tout le monde voit les cartes restantes du joueur. En fin de partie, il arrive qu'à la suite d'erreur, un joueur ne sache plus bien quelle(s) carte(s) il a en main...
 
 
 Bon tarot !
