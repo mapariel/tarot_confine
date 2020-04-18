@@ -5,10 +5,11 @@ Pour jouer au tarot, comme en vrai, avec ses amis pendant le confinement.
 
 Éditez le fichier organisateur.csv et indiquez-y votre adresse de courriel et le mot de passe de votre messagerie. La connexion se fait en SMTP. Pour un compte Google il faut activer les connexions moins sécurisées.
 
-Ajoutez les noms et adresses de courriel des joueurs dans le fichier joueurs.csv.
-Vous êtes prêts. Lancez tarot.GUI : `python3 tarot.GUI`. Vous avez besoin de Python3 et de quelques modules (numpy, tkinter...)
+Ajoutez les noms et adresses de courriel des joueurs dans le fichier joueurs.csv. Vous pouvez changer ce fichier en cours de partie, les modifications seront prises en compte pour la partie suivante.
 
-Pour le moment on peut joueur uniquement à 4 joueurs. Chaque joueur a une main de 18 cartes et il y a 6 cartes au chien. Pas de garde sans ni contre le chien non plus. Patience, ça viendra.
+Lancez tarot.GUI : `python3 tarot.GUI`. Vous avez besoin de Python3 et de quelques modules (numpy, tkinter...)
+
+On peut jouer à trois, quatre ou cinq (avec un <<mort>>). Chaque joueur a une main de 18 cartes et il y a 6 cartes au chien. Pas de garde sans ni contre le chien non plus. Patience, ça viendra.
 
 ## La partie
 
