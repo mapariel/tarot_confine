@@ -40,7 +40,7 @@ MESSAGE={
      PLI_EN_COURS : ["{} : ","",],
      PLI_FINI  : ["{} a emporté le pli.","L'excuse revient à {} en ećhange d'une carte."],
      PARTIE_FINIE : ["La partie est finie. Voici l'écart de {} :",""],
-     AFFICHAGE_SCORE : ["{} a marqué {:.1f} points.",""],
+     AFFICHAGE_SCORE : ["{} a pris","Il a fait {:.0f} points."],
      PARTIE_TERMINEE : ["La partie est terminée. Recommencer ?[O/n] ",""],
      CARTES_RASSEMBLEES : ["Le jeu est prêt. Couper.",""]
     }
@@ -189,7 +189,7 @@ class Partie:
                levées par l'attaquant et array[1] par le défenseur
      enchere : NORMAL,PASSE,SANS, CONTRE
      echange : sur la partie en cours, 
-               l'excuse revient à l'attaque ou à la défense en échange d'une carte             
+               l'excuse revient à l'attaque ou à la défense en échange d'une carte            
     """
     
 
@@ -348,6 +348,19 @@ class Partie:
                 if len(noms)!=0 : chaine = chaine+f+" : \t"+" ".join(noms)+"\n"
         return chaine       
             
+    
+    def score(self):
+        """
+        Losque la partie est finie, retourne le score du preneur.
+        RETURNS :
+            score : 0 si la partie n'est pas finie
+        """
+        score = 0
+        if self.finie():
+            return score
+        score = sum( [carte.points for carte in self.levee[0] ] )
+        return score
+    
     
     def finie(self):
         """
@@ -547,14 +560,46 @@ class Partie:
             return excuse_echangee
 
                 
+
+    def peigne(self,cartes):
+        binaire = [carte.points != 0.5 for carte in cartes]
+        print(binaire)
+        
+        debut,milieu,fin = cartes[:0],cartes[0:2],cartes[2:]
+        d,m,f = binaire[:0],binaire[0:2],binaire[2:]
+        
+        ok = True
+        i = 0
+        while True:
+            i = i+1
+            if i==100 :
+                break
+            if sum(m)==2 :
+                mini,index = np.amin(f),np.argmin(f)
+                if mini == 1 :
+                    ok=False
+                    break
+                milieu[0],fin[index] = fin[index],milieu[0]
+                m[0],f[index] = f[index],m[0]
+                if len(fin)<=2 :
+                    break
+            debut = np.hstack((debut,milieu))
+            d = np.hstack((d,m))
+            milieu = fin[:2]   
+            m = f[:2]
+            fin = fin[2:]
+            f = f[2:]
+        cartes = np.hstack((debut,milieu,fin))
+        return cartes.tolist(),ok
+                
+                
             
         
 
     def compter(self):
         """
-        Place les cartes de l'écart dans la levée et compte les points
-        Returns :
-           score : le score de l'attaquant
+        Place les cartes de l'écart dans la levée et peigne les cartes de la levee 
+        pour éviter que deux cartes à points se suivent
         """
         if self.etat==AFFICHAGE_SCORE:
             # carte en echange de l'excuse
@@ -570,9 +615,13 @@ class Partie:
             # ajoute l'écart à la levée de l'attaquant
             self.levee[0] = list(self.preneur().main.values())+self.levee[0] 
             self.preneur().main = {}
-            score = sum([carte.points for carte in self.levee[0] ])
-            self.etat = AFFICHAGE_SCORE 
-            return score
+            self.levee[0],ok = self.peigne(self.levee[0])
+            # s'il reste un paquet de cartes à points sur la fin
+            if not ok :
+                self.levee[0] = np.flip(self.levee[0])
+                self.levee[0],_ = self.peigne(self.levee[0])
+                self.levee[0] = np.flip(self.levee[0])
+            
             
         
     def rejouer(self):
@@ -641,8 +690,9 @@ class Partie:
             message = message.format(self.preneur())
             
         elif self.etat == AFFICHAGE_SCORE :
-            score = self.compter()
-            message = message.format(self.preneur(),score)
+            self.compter()
+            message = message.format(self.preneur())
+
         return(message)     
 
     def action(self,entry_input):
@@ -723,6 +773,7 @@ class Partie:
             self.etat = AFFICHAGE_SCORE
         elif self.etat == AFFICHAGE_SCORE :
             cartes = [carte.abbr for carte in self.levee[0]]
+            message = message.format(self.score())
             self.etat = PARTIE_TERMINEE
         elif self.etat == PARTIE_TERMINEE:
             if entry_input =='n' :
@@ -732,7 +783,7 @@ class Partie:
                 self.etat = CARTES_RASSEMBLEES
         elif self.etat == CARTES_RASSEMBLEES:
             if self.debug:
-                partie.initialise_joueurs(n_joueurs = np.random.randint(3,5) )
+                self.initialise_joueurs(n_joueurs = np.random.randint(3,5) )
             self.couper()
             self.etat = PRET               
            
