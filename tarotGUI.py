@@ -229,10 +229,17 @@ if __name__ == '__main__':
                 color = (0,0,0)
             if carte.valeur<11:
                 pildraw.Draw(img).text((5,5),str(carte.valeur),color,font=f2)
-                pildraw.Draw(img).text((115,5),str(carte.valeur),color,font=f2)
-                pildraw.Draw(img).text((5,213),str(carte.valeur),color,font=f2)
-                pildraw.Draw(img).text((115,213),str(carte.valeur),color,font=f2)
-        
+                if carte.valeur==10:
+                    pildraw.Draw(img).text((107,5),str(carte.valeur),color,font=f2)
+                else :
+                    pildraw.Draw(img).text((115,5),str(carte.valeur),color,font=f2)
+                img = img.rotate(180)
+                if carte.valeur==10:
+                    pildraw.Draw(img).text((107,5),str(carte.valeur),color,font=f2)                    
+                else :
+                    pildraw.Draw(img).text((115,5),str(carte.valeur),color,font=f2)
+                pildraw.Draw(img).text((5,5),str(carte.valeur),color,font=f2)
+                
         img = pitk.PhotoImage(img)
         images_cartes[abbr] =  img
         # 
