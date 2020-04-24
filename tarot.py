@@ -189,7 +189,16 @@ class Partie:
                levées par l'attaquant et array[1] par le défenseur
      enchere : NORMAL,PASSE,SANS, CONTRE
      echange : sur la partie en cours, 
-               l'excuse revient à l'attaque ou à la défense en échange d'une carte            
+               l'excuse revient à l'attaque ou à la défense en échange d'une carte
+     entames : un dictionnaire qui donne l'état des entames et des atouts 
+         entames={ 
+                 'pique':True,
+                 'coeur':False,
+                 'carreau':True,
+                 'trefle':False,
+                 'atout':10  
+                 }
+        signifie que pique careau et carreau ont été entamées et qu'il reste 10 atouts.         
     """
     
 
@@ -224,6 +233,7 @@ class Partie:
         self.enchere = ENCHERE_NORMAL
         self.echange = - 1  # pas d'excuse à échanger
         self.debug=debug
+        self.initialise_entames()
         
         
         
@@ -254,7 +264,9 @@ class Partie:
         self.entame_index = self.joueur_index
         self.pli = Pli(n=self.nombre(),entame_index=self.entame_index)
         
-    
+    def initialise_entames(self):
+        self.entames = {'pique':False,'carreau':False,'coeur':False,'trefle':False,'atout':0}
+        
     
     def nombre(self):
         """
@@ -297,11 +309,16 @@ class Partie:
         Returns :
             le Joueur qui a pris. None si personne ne prend
         """
-        if self.preneur_index==-1 : return None
-        return self.joueurs[self.preneur_index]
-    
+        try:
+            if self.preneur_index==-1 : return None
+            return self.joueurs[self.preneur_index]
+        except IndexError:
+            return None
+        
+    """
     def entame(self):
         return self.joueurs[self.entame_index]
+    """
     
     def joueur(self):
         return self.joueurs[self.joueur_index]   
@@ -347,7 +364,8 @@ class Partie:
                 noms = [carte.nom for carte in main if carte.famille==f]
                 if len(noms)!=0 : chaine = chaine+f+" : \t"+" ".join(noms)+"\n"
         return chaine       
-            
+
+    
     
     def score(self):
         """
@@ -413,6 +431,7 @@ class Partie:
                  
                  direction = self.index_direction_suivante(direction)
                  #direction = (direction+1)%self.nombre()
+        self.initialise_entames()
         return True  # tout se passe bien        
                   
                  
@@ -424,19 +443,18 @@ class Partie:
          preneur : int, indice du preneur    
         Returns :
           chien : Array of cartes  
-        """    
-        #index = self.joueurs.index(preneur)
-        if self.etat==PRISE :
-            self.etat = AFFICHAGE_CHIEN 
-            
+        """  
+
+        if index in range(self.nombre()):
             self.preneur_index = index
+            self.enchere = ENCHERE_NORMAL
+            return index
+        if index==-1 : 
+            self.enchere = ENCHERE_PASSE     # partie passée
+            return -1
+        return None
+
             
-            if index != -1 :  # quelqun a pris
-                self.enchere = ENCHERE_NORMAL
-            else : self.enchere = ENCHERE_PASSE     # partie passée
-            
-            return index,self.chien
-    
     
     def ecarter(self):
             """
@@ -486,7 +504,7 @@ class Partie:
                  try :
                      abbr = list(joueur.main.values())[0].abbr         
                  except IndexError:
-                     print('IndexError')
+                     print('line 507 IndexError')
              famille = None        
              if self.joueur_index != self.entame_index:
                 famille = self.pli.cartes[self.entame_index].famille
@@ -505,7 +523,7 @@ class Partie:
     def emporter_pli(self):
             """
             Lorsque le pli est complet, détermine le gagnant et met les 
-            cartes dans sa levée
+            cartes dans sa levée. Il met aussi à jour le dictionnaire self.entames
             Returns : 
                 echange
                     -1 : pas d'excuse à échanger dans le pli
@@ -517,6 +535,14 @@ class Partie:
             excuse_trouvee = False
             excuse_echangee = False
             # l'echange d'excuse n'arrive qu'une fois par partie
+
+            famille = self.pli.cartes[self.entame_index].famille
+            if famille != 'atout':
+                self.entames[famille]=True 
+            n_atouts = len([carte for carte in self.pli.cartes if carte.famille=='atout' and carte.abbr!='e'])
+            self.entames['atout'] = self.entames['atout']+n_atouts
+
+
             
             if self.echange == -1 :
                 # l'excuse est dans le pli
@@ -541,10 +567,10 @@ class Partie:
                         self.pli.cartes.remove(excuse)
                         excuse_echangee = True
                 
-                    
-
+            
+            
+            
             self.entame_index  = gagnant_index
-            #self.entame_index = (gagnant_index)%self.nombre()
             self.joueur_index = self.entame_index 
              # ajouter les cartes aux levees de l'attaque ou de la défense
             if gagnant_index == self.preneur_index:
@@ -553,18 +579,19 @@ class Partie:
                  self.levee[1]=self.levee[1]+[carte for carte in self.pli.cartes if carte]
             if excuse_echangee : 
                 self.levee[self.echange] = self.levee[self.echange]+[excuse]
-             # initialise le pli
+             # initialise le futur pli pli
             self.pli = Pli(self.nombre(),self.entame_index)
-            #self.pli.entame_index = self.entame_index
             
             return excuse_echangee
 
                 
 
     def peigne(self,cartes):
-        binaire = [carte.points != 0.5 for carte in cartes]
-        print(binaire)
-        
+        """
+        Range les cartes en évitatnt que deux cartes à points soient adjacentes et
+        en conservant au mieux l'ordre initial des cartes
+        """
+        binaire = [carte.points != 0.5 for carte in cartes]      
         debut,milieu,fin = cartes[:0],cartes[0:2],cartes[2:]
         d,m,f = binaire[:0],binaire[0:2],binaire[2:]
         
@@ -575,6 +602,7 @@ class Partie:
             if i==100 :
                 break
             if sum(m)==2 :
+                print('ligne602',f)
                 mini,index = np.amin(f),np.argmin(f)
                 if mini == 1 :
                     ok=False
@@ -608,7 +636,8 @@ class Partie:
                 for carte in self.levee[self.echange]:
                     if carte.points == 0.5:
                         break
-                print("carte echangee :",carte.abbr)    
+                if self.debug:
+                    print("ligne 635 carte echangee :",carte.abbr)    
                 self.levee[self.echange].remove(carte)
                 self.levee[(self.echange+1)%2].append(carte)
             
@@ -719,8 +748,16 @@ class Partie:
 
             self.etat = PRISE
         elif self.etat == PRISE :
-            if self.prise(int(entry_input)):
+            try :
+                if self.prise(int(entry_input)) >= 0:
                     message = message.format(self.preneur())
+                    self.etat = AFFICHAGE_CHIEN
+                elif self.prise(int(entry_input))==-1:
+                    message = message.format("Personne n'")
+                    self.etat = AFFICHAGE_CHIEN
+                    self.enchere =  ENCHERE_PASSE
+            except ValueError:
+                 message = "Je n'ai pas compris."  
         elif self.etat == AFFICHAGE_CHIEN:
             cartes = [carte.abbr for carte in self.chien]
             if self.enchere == ENCHERE_PASSE:
@@ -796,7 +833,7 @@ class Partie:
 if __name__ == "__main__":
     score = 0
     donneur = int(input("Premier donneur : "))
-    partie = Partie(donneur_index=donneur,n_joueurs=5,debug=True)
+    partie = Partie(donneur_index=donneur,n_joueurs=5,debug=False)
     
     while True:
         
