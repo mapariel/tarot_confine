@@ -43,13 +43,20 @@ colonne =[ [sg.Multiline(default_text=message,disabled=True,size=(30,30),key='-O
           ]  
 colonne = colonne+[[sg.Text(size=(20,3))]]+entames           
           
+menu_def=[ 
+          ['&Jeu',['annuler la &partie','annuler le &coup','&quitter']] , 
+          ['J&oueurs',['&gérer','&voir']]
+         ]
+
             
 
-layout = [  [sg.Text('Jeu de tarot')],
-            [sg.Column(colonne),
-             sg.Canvas(size=(width,height),background_color='green', key='canvas')
-             ]
-        ]
+layout = [
+           [sg.Menu(menu_def)], 
+           [sg.Text('Historique')],
+           [sg.Column(colonne),
+                     sg.Canvas(size=(width,height),background_color='green', key='canvas')],
+        ]  
+        
 # Create the Window
 window = sg.Window('Tarot Confiné', layout,return_keyboard_events=True)
 
@@ -103,7 +110,6 @@ def affiche_noms(canvas,partie):
     coord_noms = centre+350*np.vstack((np.cos(-angles),np.sin(-angles)))
     for i in range(n):
         nom = str(i)+'_'+str(partie.joueurs[i])
-        print(partie.preneur_index)
         if partie.preneur_index == i:
             f_ = f.copy()
             f_.configure(underline=True)
@@ -127,7 +133,6 @@ def affiche_cartes(canvas,partie,cartes,images_cartes):
     canvastk.delete('carte')
     global f
     
-    print('line 122',partie.entames)
     
     
     if partie.etat in (tr.PLI_EN_COURS,tr.PLI_FINI ):
@@ -200,33 +205,55 @@ chargement des cartes
 images_cartes = load_image_cartes()            
             
 
-window.Refresh()
-
-
+#window.Refresh()
+window_active=True
+window2_active=False 
 
 
 # Event Loop to process "events"
 while True:             
-    event, values = window.read()
-    if event in (None, 'Cancel'):
+    event, values = window.read(timeout=100)
+    if event in (None, 'quitter'):
         break
+    elif event in ('__TIMEOUT__','Shift_R:62'):
+        continue
+    if len(event)==1 and event!='\r':
+        continue
+    elif event == 'voir'  and not window2_active:  
+        window2_active = True  
+        window_active=False
+        texte = partie.affiche(joueur_index=partie.joueur_index)
+        layout2= [
+                    [sg.Text(text=texte,size=(50,8))],
+                    [sg.Button('Fermer')]
+                ]   
+        window2 = sg.Window('Voir le jeu', layout2,force_toplevel=True)
+        window2.read()
+        window2.Close()  
+        window2_active = False
+        window_active=True
+        continue
     
-    if event in ('Ok','\r'):
+    if event in ('annuler la partie'):
+        entry_input = 'FIN'  
+    elif event in ('annuler le coup'):
+        entry_input = 'A'  
+    elif event in ('Ok','\r'):
         #if True: #values['-INPUT-']:
         entry_input =  values['-INPUT-']
         print("{:>50}".format(entry_input))
         window['-INPUT-'].update('')
-        message,cartes = partie.action(entry_input)
-        if partie.etat in (tr.DISTRIBUE,tr.ECART,tr.CARTES_RASSEMBLEES,):
-            affiche_noms(window['canvas'],partie)
-        if len(cartes)>0 :
-                window['-OUTPUT-'].print(cartes)
-                affiche_cartes(window['canvas'],partie,cartes,images_cartes)
-        affiche_entames(window,partie)
-        window['-OUTPUT-'].print(message)
-        message = partie.get_message()
-        window['-OUTPUT-'].print(message)
+    message,cartes = partie.action(entry_input)
+    if partie.etat in (tr.DISTRIBUE,tr.ECART,tr.CARTES_RASSEMBLEES,):
+        affiche_noms(window['canvas'],partie)
+    if len(cartes)>0 :
+        window['-OUTPUT-'].print(cartes)
+        affiche_cartes(window['canvas'],partie,cartes,images_cartes)
+    affiche_entames(window,partie)
+    window['-OUTPUT-'].print(message)
+    message = partie.get_message()
+    window['-OUTPUT-'].print(message)
             
-        
+       
 
 window.close()
