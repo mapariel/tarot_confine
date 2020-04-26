@@ -20,8 +20,8 @@ import time
 sg.theme('DarkAmber')   # Add a little color to your windows
 # All the stuff inside your window. This is the PSG magic code compactor...
 # les dimensions du tapis de jeu
-width = 1000
-height = 800
+width = 900
+height = 700
 images_cartes = {}
 distributeur = Distributeur()
 partie = tr.Partie(donneur_index=0,distributeur=distributeur,debug=False)
@@ -29,23 +29,30 @@ message = partie.get_message()
 
 
 
+#print(values)
+
+
+
+
+
 """
 Définition de l'interface graphique
 """
-entames = [ [sg.Text(size=(20,1),key='INFOS_'+famille,font=('Helvetica',14),text_color='white',justification='center')]   
+entames = [ [sg.Text(size=(16,1),key='INFOS_'+famille,font=('Helvetica',14),text_color='white',justification='center')]   
                         for famille in ['pique','coeur','carreau','trefle','atout']   ] 
 
 
-colonne =[ [sg.Multiline(default_text=message,disabled=True,size=(30,30),key='-OUTPUT-',font=('Helvetica',12),autoscroll=True)],
+colonne =[ [sg.Multiline(default_text=message,disabled=True,size=(30,20),key='-OUTPUT-',font=('Helvetica',12),autoscroll=True)],
             [sg.InputText(size=(10,1),key='-INPUT-',font=('Monospace', 16)),
              sg.Button('Ok'),sg.Button('Cancel'),
              ]
           ]  
-colonne = colonne+[[sg.Text(size=(20,3))]]+entames           
+colonne = colonne+entames           
           
-menu_def=[ 
-          ['&Jeu',['annuler la &partie','annuler le &coup','&quitter']] , 
-          ['J&oueurs',['&gérer','&voir']]
+menu_def=[
+          ['&Paramètres',["modifier l'&organisateur",'modifier les &joueurs','&quitter']],
+          ['&Jeu',['annuler la &partie','annuler le &coup','&voir le jeu du prochain joueur']] , 
+          ['&Aide',['&aide rapide','&licence','à &propos']]
          ]
 
             
@@ -58,6 +65,11 @@ layout = [
         ]  
         
 # Create the Window
+
+
+
+
+           
 window = sg.Window('Tarot Confiné', layout,return_keyboard_events=True)
 
 
@@ -99,7 +111,7 @@ def affiche_noms(canvas,partie):
     width,height = canvas.Size
     canvastk = canvas.tk_canvas 
     global f
-    canvastk.delete('noms_joueurs')    
+    canvastk.delete('nom_joueur')    
 
     n = partie.nombre()
     angles = np.arange(n)
@@ -107,17 +119,22 @@ def affiche_noms(canvas,partie):
     angles = np.array(angles)
     centre = np.array([width/2,height/2])
     centre.shape=(2,1)
-    coord_noms = centre+350*np.vstack((np.cos(-angles),np.sin(-angles)))
+    
+    coord_noms = centre+np.vstack((width*0.4*np.cos(-angles),height*0.45*np.sin(-angles)))
     for i in range(n):
         nom = str(i)+'_'+str(partie.joueurs[i])
+        f_ = f.copy()
+        if partie.joueur_index == i :
+            f_.configure(slant='italic')
+            canvastk.create_text(coord_noms[0,i],coord_noms[1,i],fill="darkblue"
+                ,font=f_,text=nom,tags='nom_joueur')
         if partie.preneur_index == i:
-            f_ = f.copy()
             f_.configure(underline=True)
             canvastk.create_text(coord_noms[0,i],coord_noms[1,i],fill="darkblue"
-                ,font=f_,text=nom,tags='nom_joueurs')
+                ,font=f_,text=nom,tags='nom_joueur')
         else:
             canvastk.create_text(coord_noms[0,i],coord_noms[1,i],fill="darkblue"
-                ,font=f,text=nom,tags='nom_joueurs')
+                ,font=f_,text=nom,tags='nom_joueur')
     canvastk.update()  
 
 
@@ -195,7 +212,7 @@ def affiche_entames(window,partie):
 
 
 
-window.read()
+window.read(timeout=100)
 
 f = tkFont.Font()
 f.configure(family="Times",size=20,weight="bold")          
@@ -215,24 +232,96 @@ while True:
     event, values = window.read(timeout=100)
     if event in (None, 'quitter'):
         break
-    elif event in ('__TIMEOUT__','Shift_R:62'):
+    elif event not in ('voir le jeu du prochain joueur','à propos','\r','aide rapide','licence',
+                       'modifier les joueurs',"modifier l'organisateur",'annuler la partie','annuler le coup','Ok'):
         continue
-    if len(event)==1 and event!='\r':
-        continue
-    elif event == 'voir'  and not window2_active:  
+    if event in ('voir le jeu du prochain joueur','à propos')  and not window2_active:  
         window2_active = True  
         window_active=False
-        texte = partie.affiche(joueur_index=partie.joueur_index)
+        if event == 'voir le jeu du prochain joueur':
+            texte = partie.affiche(joueur_index=partie.joueur_index)
+        elif event=='à propos':
+            texte = """\n TAROT CONFINE \n \n Martin MORITZ - 2020 
+            \n https://github.com/mapariel/tarot_confine \n\n Bon jeu !"""
         layout2= [
                     [sg.Text(text=texte,size=(50,8))],
                     [sg.Button('Fermer')]
                 ]   
-        window2 = sg.Window('Voir le jeu', layout2,force_toplevel=True)
+        window2 = sg.Window(event, layout2,force_toplevel=True)
         window2.read()
         window2.Close()  
         window2_active = False
         window_active=True
         continue
+    elif event in ("modifier l'organisateur"):                
+        window2_active = True  
+        window_active=False
+        layout2 = [
+                 [sg.Text('email :'),sg.Input(key='username')],
+                 [sg.Text('mot de passe'),sg.Input(key='password',password_char='*')],
+                 [sg.Button('Ok')]
+                 ] 
+        window2 = sg.Window(event, layout2,force_toplevel=True)
+        event2,values2 = window2.read()
+        distributeur.email_user = values2['username']
+        distributeur.email_password = values2['password']
+        window2.close()
+        window2_active = False
+        window_active=True
+        continue
+
+        
+        
+    elif event in ('aide rapide','licence')  and not window2_active:  
+        window2_active = True  
+        window_active=False
+        if event=='licence':
+            file = open("./LICENSE", "r")
+        elif event=='aide rapide':
+            file = open("./README.md","r",encoding='utf8')
+        layout2= [
+                    [sg.Multiline(default_text=file.read(),size=(68,40),background_color='white',text_color='black')],
+                    [sg.Button('Fermer')]
+        ]
+        window2 = sg.Window(event, layout2,force_toplevel=True)
+        window2.read()
+        file.close()
+        window2.Close()  
+        window2_active = False
+        window_active=True
+        continue
+    
+    
+    elif event == 'modifier les joueurs'  and not window2_active: 
+        window2_active = True  
+        window_active=False
+        n = len(distributeur.noms)
+        noms = distributeur.noms+['']*(5-n)
+        emails = distributeur.emails+['']*(5-n)
+        
+        
+        layout2= [
+                   [sg.Input(default_text=noms[i],size=(30,1),key='nom'+str(i)),
+                     sg.Input(default_text=emails[i],size=(30,1),key='email'+str(i))]
+                   for i in range(5)
+                ]  
+        layout2 = layout2+ [[sg.Button('Fermer')]]
+        window2 = sg.Window('Voir le jeu', layout2,force_toplevel=True)
+        event2,values2 = window2.read() 
+        #print(values2)
+        distributeur.noms=[]
+        distributeur.emails=[]
+        for i in range(5):
+            if  values2['nom'+str(i)] != '':
+                distributeur.noms.append(values2['nom'+str(i)])
+                distributeur.emails.append(values2['email'+str(i)])
+        partie.initialise_joueurs()        
+        entry_input = 'FIN'            
+        window2.close()
+        window2_active = False
+        window_active=True
+        
+        
     
     if event in ('annuler la partie'):
         entry_input = 'FIN'  
@@ -244,7 +333,7 @@ while True:
         print("{:>50}".format(entry_input))
         window['-INPUT-'].update('')
     message,cartes = partie.action(entry_input)
-    if partie.etat in (tr.DISTRIBUE,tr.ECART,tr.CARTES_RASSEMBLEES,):
+    if partie.etat in (tr.DISTRIBUE,tr.ECART,tr.CARTES_RASSEMBLEES,tr.PLI_EN_COURS):
         affiche_noms(window['canvas'],partie)
     if len(cartes)>0 :
         window['-OUTPUT-'].print(cartes)
