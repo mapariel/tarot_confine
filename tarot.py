@@ -220,7 +220,7 @@ class Partie:
         self.preneur_index = -1 # pas de preneur
         self.joueur_index = 1
         self.entame_index  = 1
-        self.initialise_joueurs(n_joueurs=n_joueurs)
+        self.initialise_joueurs()
         
         self.jeu= []
         
@@ -259,7 +259,8 @@ class Partie:
             self.joueurs = [Joueur(nom=n)  
                         for  n in noms]
         # au cas où le nombre de joueurs a changé depuis la partie précédente
-        self.donneur_index = self.donneur_index%self.nombre()
+        n = len(self.distributeur.noms)
+        self.donneur_index = self.donneur_index%n
         self.joueur_index = self.index_direction_suivante(self.donneur_index)
         self.entame_index = self.joueur_index
         self.pli = Pli(n=self.nombre(),entame_index=self.entame_index)
@@ -397,7 +398,7 @@ class Partie:
         """
         distribue les cartes du jeu aux joueurs et au chien
         à la fin de la distribution, le jeu est vide
-        """  
+        """ 
         if self.debug :
             if len(self.jeu) != 78 :
                 print("Anomalie",len(self.jeu))
