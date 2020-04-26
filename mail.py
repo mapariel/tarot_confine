@@ -9,7 +9,7 @@ import smtplib
 #from tarot import Partie
 from email.message import EmailMessage
 import time
-import csv
+#import csv
 
 class Distributeur:
     
@@ -21,20 +21,24 @@ class Distributeur:
         Les noms des joueurs ainsi que leur email sont dans le fichiers 
         joueurs.csv
         """
-        self.noms=[]
-        self.emails=[]
+        self.noms=[ 'joueur_'+str(i) for i in range(4)]
+        self.emails=['email' for i in range(4) ]
+        """
         with open('serveur.csv', newline='') as csvfile:
             reader = csv.reader(csvfile)
             for line in reader:
-                self.email_user = line[0]
-                self.email_password = line[1]
-        
+                
+        """
+        self.email_user = ''
+        self.email_password = ''
+
+        """
         with open('joueurs.csv', newline='') as csvfile:
             reader = csv.reader(csvfile)
             for line in reader:
                 self.noms.append(line[0])
                 self.emails.append(line[1])
-
+        """
     
     def send(self,partie):
         now = time.localtime(time.time())
