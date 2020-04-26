@@ -3,11 +3,11 @@ Pour jouer au tarot, comme en vrai, avec ses amis pendant le confinement.
 
 ## Préparation de la partie
 
-Lancez le jeu et dans la première fenêtre indiquez votre adresse de courriel 
+Dans le menu Partie->modifier l'organisateur, indiquez votre adresse de courriel 
 et le mot de passe de votre messagerie. La connexion se fait en SMTP. 
 Pour un compte Google il faut activer les connexions moins sécurisées.
 
-Dans le menu, allez dans Joueurs->modifier les joueurs. Indiquez le noms des joueurs et 
+Dans le menu, allez dans Partie->modifier les joueurs. Indiquez le noms des joueurs et 
 l'adresse de courriel auxquelles ils souhaitent recevoir leur jeux.
 
 On peut jouer à trois, quatre ou cinq (avec un *mort*). Chaque joueur a une main de 18 cartes (24 à trois) et il y a 6 cartes au chien. Pas de garde sans ni contre le chien non plus. Patience, ça viendra.
