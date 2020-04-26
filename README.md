@@ -3,11 +3,12 @@ Pour jouer au tarot, comme en vrai, avec ses amis pendant le confinement.
 
 ## Préparation de la partie
 
-Éditez le fichier organisateur.csv et indiquez-y votre adresse de courriel et le mot de passe de votre messagerie. La connexion se fait en SMTP. Pour un compte Google il faut activer les connexions moins sécurisées.
+Lancez le jeu et dans la première fenêtre indiquez votre adresse de courriel 
+et le mot de passe de votre messagerie. La connexion se fait en SMTP. 
+Pour un compte Google il faut activer les connexions moins sécurisées.
 
-Ajoutez les noms et adresses de courriel des joueurs dans le fichier joueurs.csv. Vous pouvez changer ce fichier en cours de partie, les modifications seront prises en compte pour la partie suivante.
-
-Lancez tarot.GUI : `python3 tarot.GUI`. Vous avez besoin de Python3 et de quelques modules (numpy, tkinter...)
+Dans le menu, allez dans Joueurs->modifier les joueurs. Indiquez le noms des joueurs et 
+l'adresse de courriel auxquelles ils souhaitent recevoir leur jeux.
 
 On peut jouer à trois, quatre ou cinq (avec un *mort*). Chaque joueur a une main de 18 cartes (24 à trois) et il y a 6 cartes au chien. Pas de garde sans ni contre le chien non plus. Patience, ça viendra.
 
@@ -25,12 +26,12 @@ Respectez les règles du tarot en jouant, le jeu ne vérifie pas. Pas de "je cou
 
 À la fin, le jeu compte les points du preneur et propose de jouer une nouvelle partie.
 
-## Quelques commandes
-FIN : arrêter une partie en cours de jeu
+## Quelques commandes des menus :
+Jeu-> annuler la partie : arrêter une partie en cours de jeu
 
-A : annuler la carte posée par le joueur. La carte revient dans son jeu et il doit en joueur une autre
+Jeu->annuler le coup : annuler la carte posée par le joueur. La carte revient dans son jeu et il doit en joueur une autre
 
-VOIR : tout le monde voit les cartes restantes du joueur. En fin de partie, il arrive qu'à la suite d'erreur, un joueur ne sache plus bien quelle(s) carte(s) il a en main...
+Joeur->voir le jeu du porchain joueur  : Pour voir les cartes restantes du joueur. En fin de partie, il arrive qu'à la suite d'erreur, un joueur ne sache plus bien quelle(s) carte(s) il a en main...
 
 
-Bon tarot !
+Bon jeu !
