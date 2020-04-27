@@ -399,9 +399,9 @@ class Partie:
         distribue les cartes du jeu aux joueurs et au chien
         à la fin de la distribution, le jeu est vide
         """ 
-        if self.debug :
+        if True :
             if len(self.jeu) != 78 :
-                print("Anomalie",len(self.jeu))
+                print("Anomalie dans tarot distribuer",len(self.jeu))
                 return None
             
         if self.etat == PRET :
@@ -540,7 +540,8 @@ class Partie:
             famille = self.pli.cartes[self.entame_index].famille
             if famille != 'atout':
                 self.entames[famille]=True 
-            n_atouts = len([carte for carte in self.pli.cartes if carte.famille=='atout' and carte.abbr!='e'])
+            n_atouts = len([carte for carte in self.pli.cartes 
+                            if carte and carte.famille=='atout' and carte.abbr!='e'])
             self.entames['atout'] = self.entames['atout']+n_atouts
 
 
@@ -657,11 +658,14 @@ class Partie:
     def rejouer(self):
          """
          Les joueurs ont accepté de rejouer une partie
+         Toutes les cartes sont remises dans le jeu
+         les mains des joueurs, les levees, le chien et le pli en cours
+         sont nettoyés
          """
          self.echange = -1  # pour l'echange de l'excuse
 
          # pour une partie interrompue, il faut remettre les cartes du pli dans le jeu
-         self.jeu =  [ carte for carte in self.pli.cartes if carte ]
+         self.jeu = self.jeu+[ carte for carte in self.pli.cartes if carte ]
          # remet les levées dans les tas de cartes         
          self.jeu = self.jeu +self.levee[0]+self.levee[1]
          self.levee[0]=[]
@@ -677,7 +681,9 @@ class Partie:
          self.chien = []
          self.donneur_index = (self.donneur_index+1)%self.nombre()
          self.pli = Pli(self.nombre(),(self.donneur_index+1)%self.nombre())
+         #self.initialise_joueurs()
 
+ 
          
          
 
