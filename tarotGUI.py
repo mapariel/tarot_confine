@@ -20,7 +20,7 @@ import time
 sg.theme('DarkAmber')   # Add a little color to your windows
 # All the stuff inside your window. This is the PSG magic code compactor...
 # les dimensions du tapis de jeu
-width = 900
+width = 1000
 height = 700
 images_cartes = {}
 distributeur = Distributeur()
@@ -64,13 +64,57 @@ layout = [
                      sg.Canvas(size=(width,height),background_color='green', key='canvas')],
         ]  
         
-# Create the Window
-
-
-
-
-           
+# Create the Window           
 window = sg.Window('Tarot Confiné', layout,return_keyboard_events=True)
+
+
+def window_organisateur(distributeur,partie):
+        layout = [
+                 [sg.Text('email :'),sg.Input(key='username')],
+                 [sg.Text('mot de passe'),sg.Input(key='password',password_char='*')],
+                 [sg.Button('Valider'),sg.Button('Annuler')]
+                 ] 
+        window = sg.Window("messagerie de l'organisateur", layout,force_toplevel=True)
+        event,values = window.read()
+        if event == 'Valider':
+            distributeur.email_user = values['username']
+            distributeur.email_password = values['password']
+        window.close()
+
+def window_joueurs(distributeur,partie):
+        n = len(distributeur.noms)
+        noms = distributeur.noms+['']*(5-n)
+        emails = distributeur.emails+['']*(5-n)
+        
+        
+        layout= [
+                   [sg.Input(default_text=noms[i],size=(30,1),key='nom'+str(i)),
+                     sg.Input(default_text=emails[i],size=(30,1),key='email'+str(i))]
+                   for i in range(5)
+                ]  
+        layout = layout+ [[sg.Button('Valider'),sg.Button('Annuler')]]
+        window = sg.Window('MEssagerie des joueurs', layout,force_toplevel=True)
+        event,values = window.read() 
+        #print(values2)
+        if event == 'Valider':
+            
+            distributeur.noms=[]
+            distributeur.emails=[]
+            for i in range(5):
+                nom = values['nom'+str(i)].strip() 
+                email = values['email'+str(i)].strip()
+                if  nom  != '':
+                    distributeur.noms.append(nom)
+                    distributeur.emails.append(email)
+            # rassembler les cartes des joueurs
+            partie.rejouer()
+            # attribuer les nouveaux joueurs
+            partie.initialise_joueurs()
+            partie.etat=tr.CARTES_RASSEMBLEES
+        window.close()
+
+
+
 
 
 
@@ -122,18 +166,18 @@ def affiche_noms(canvas,partie):
     
     coord_noms = centre+np.vstack((width*0.4*np.cos(-angles),height*0.45*np.sin(-angles)))
     for i in range(n):
-        nom = str(i)+'_'+str(partie.joueurs[i])
+        nom = str(i)+' : '+str(partie.joueurs[i])
         f_ = f.copy()
         if partie.joueur_index == i :
-            f_.configure(slant='italic')
-            canvastk.create_text(coord_noms[0,i],coord_noms[1,i],fill="darkblue"
-                ,font=f_,text=nom,tags='nom_joueur')
+            f_.configure(weight='bold')
+            print('affiche_nom_italic')
+            #canvastk.create_text(coord_noms[0,i],coord_noms[1,i],fill="darkblue"
+                #,font=f_,text=nom,tags='nom_joueur')
         if partie.preneur_index == i:
             f_.configure(underline=True)
-            canvastk.create_text(coord_noms[0,i],coord_noms[1,i],fill="darkblue"
-                ,font=f_,text=nom,tags='nom_joueur')
-        else:
-            canvastk.create_text(coord_noms[0,i],coord_noms[1,i],fill="darkblue"
+            #canvastk.create_text(coord_noms[0,i],coord_noms[1,i],fill="darkblue"
+                #,font=f_,text=nom,tags='nom_joueur')
+        canvastk.create_text(coord_noms[0,i],coord_noms[1,i],fill="darkblue"
                 ,font=f_,text=nom,tags='nom_joueur')
     canvastk.update()  
 
@@ -195,7 +239,8 @@ def affiche_cartes(canvas,partie,cartes,images_cartes):
                 time.sleep(0.5)
                 canvastk.update()
             except StopIteration:
-                break       
+                break
+           
 
 def affiche_entames(window,partie):
     for famille in ['pique','carreau','coeur','trefle']:
@@ -215,7 +260,7 @@ def affiche_entames(window,partie):
 window.read(timeout=100)
 
 f = tkFont.Font()
-f.configure(family="Times",size=20,weight="bold")          
+f.configure(family="Times",size=20)          
 """
 chargement des cartes
 """            
@@ -223,8 +268,14 @@ images_cartes = load_image_cartes()
             
 
 #window.Refresh()
+
+
+
 window_active=True
 window2_active=False 
+window_organisateur(distributeur,partie)
+window_joueurs(distributeur,partie)
+
 
 
 # Event Loop to process "events"
@@ -256,16 +307,8 @@ while True:
     elif event in ("modifier l'organisateur"):                
         window2_active = True  
         window_active=False
-        layout2 = [
-                 [sg.Text('email :'),sg.Input(key='username')],
-                 [sg.Text('mot de passe'),sg.Input(key='password',password_char='*')],
-                 [sg.Button('Ok')]
-                 ] 
-        window2 = sg.Window(event, layout2,force_toplevel=True)
-        event2,values2 = window2.read()
-        distributeur.email_user = values2['username']
-        distributeur.email_password = values2['password']
-        window2.close()
+        window_organisateur(distributeur,partie)
+
         window2_active = False
         window_active=True
         continue
@@ -295,32 +338,10 @@ while True:
     elif event == 'modifier les joueurs'  and not window2_active: 
         window2_active = True  
         window_active=False
-        n = len(distributeur.noms)
-        noms = distributeur.noms+['']*(5-n)
-        emails = distributeur.emails+['']*(5-n)
-        
-        
-        layout2= [
-                   [sg.Input(default_text=noms[i],size=(30,1),key='nom'+str(i)),
-                     sg.Input(default_text=emails[i],size=(30,1),key='email'+str(i))]
-                   for i in range(5)
-                ]  
-        layout2 = layout2+ [[sg.Button('Fermer')]]
-        window2 = sg.Window('Voir le jeu', layout2,force_toplevel=True)
-        event2,values2 = window2.read() 
-        #print(values2)
-        distributeur.noms=[]
-        distributeur.emails=[]
-        for i in range(5):
-            if  values2['nom'+str(i)] != '':
-                distributeur.noms.append(values2['nom'+str(i)])
-                distributeur.emails.append(values2['email'+str(i)])
-        partie.initialise_joueurs()        
-        entry_input = 'FIN'            
-        window2.close()
+        window_joueurs(distributeur,partie)
         window2_active = False
         window_active=True
-        
+        continue
         
     
     if event in ('annuler la partie'):
@@ -333,10 +354,10 @@ while True:
         print("{:>50}".format(entry_input))
         window['-INPUT-'].update('')
     message,cartes = partie.action(entry_input)
-    if partie.etat in (tr.DISTRIBUE,tr.ECART,tr.CARTES_RASSEMBLEES,tr.PLI_EN_COURS):
-        affiche_noms(window['canvas'],partie)
-    if len(cartes)>0 :
-        window['-OUTPUT-'].print(cartes)
+    #if partie.etat in (tr.DISTRIBUE,tr.ECART,tr.CARTES_RASSEMBLEES,tr.PLI_EN_COURS):
+    affiche_noms(window['canvas'],partie)
+    if len(cartes)>0 or partie.etat==tr.PRET :
+        window['-OUTPUT-'].print(' '.join(cartes))
         affiche_cartes(window['canvas'],partie,cartes,images_cartes)
     affiche_entames(window,partie)
     window['-OUTPUT-'].print(message)
