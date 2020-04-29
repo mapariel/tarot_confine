@@ -605,14 +605,15 @@ class Partie:
                 break
             if sum(m)==2 :
                 print('ligne602',f)
-                mini,index = np.amin(f),np.argmin(f)
-                if mini == 1 :
-                    ok=False
-                    break
-                milieu[0],fin[index] = fin[index],milieu[0]
-                m[0],f[index] = f[index],m[0]
-                if len(fin)<=2 :
-                    break
+                if len(f)>1:
+                    mini,index = np.amin(f),np.argmin(f)
+                    if mini == 1 :
+                        ok=False
+                        break
+                    milieu[0],fin[index] = fin[index],milieu[0]
+                    m[0],f[index] = f[index],m[0]
+                    if len(fin)<=2 :
+                        break
             debut = np.hstack((debut,milieu))
             d = np.hstack((d,m))
             milieu = fin[:2]   
