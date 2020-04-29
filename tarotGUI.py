@@ -65,21 +65,25 @@ layout = [
         ]  
         
 # Create the Window           
-window = sg.Window('Tarot Confiné', layout,return_keyboard_events=True)
 
 
 def window_organisateur(distributeur,partie):
+        email = distributeur.email_user
+        password = distributeur.email_password
         layout = [
-                 [sg.Text('email :'),sg.Input(key='username')],
-                 [sg.Text('mot de passe'),sg.Input(key='password',password_char='*')],
+                 [sg.Text(text=
+"""Entrez votre email et votre mot de passe de messagerie Google.Le mot de passe ne sera pas sauvegardé et vous pourrez modifier ces informations plus tard""",size=(40,5)) ],
+                 [sg.Text('{:20}:'.format('email')),sg.Input(key='username',size=(20,1),default_text=email)],
+                 [sg.Text('{:15}:'.format('mot de passe')),sg.Input(key='password',password_char='*',size=(20,1),default_text=password)],
                  [sg.Button('Valider'),sg.Button('Annuler')]
                  ] 
-        window = sg.Window("messagerie de l'organisateur", layout,force_toplevel=True)
-        event,values = window.read()
+        window2 = sg.Window("messagerie de l'organisateur", layout,keep_on_top=True)
+        event,values = window2.read()
         if event == 'Valider':
+            print('ici')
             distributeur.email_user = values['username']
             distributeur.email_password = values['password']
-        window.close()
+        window2.close()
 
 def window_joueurs(distributeur,partie):
         n = len(distributeur.noms)
@@ -87,15 +91,15 @@ def window_joueurs(distributeur,partie):
         emails = distributeur.emails+['']*(5-n)
         
         
-        layout= [
-                   [sg.Input(default_text=noms[i],size=(30,1),key='nom'+str(i)),
-                     sg.Input(default_text=emails[i],size=(30,1),key='email'+str(i))]
+        layout2= [  
+                   [sg.Input(default_text=noms[i],size=(30,1),key='nom'+str(i),tooltip='Nom'),
+                     sg.Input(default_text=emails[i],size=(30,1),key='email'+str(i),tooltip='email')]
                    for i in range(5)
                 ]  
-        layout = layout+ [[sg.Button('Valider'),sg.Button('Annuler')]]
-        window = sg.Window('MEssagerie des joueurs', layout,force_toplevel=True)
-        event,values = window.read() 
-        #print(values2)
+        layout2 =[[sg.Text(text="Entrez les noms emails des joueurs. Il faut minimum 3 joueurs. En modifiant ces informations, vous annulez le jeu en cours.",size=(50,2))]]+layout2+ [[sg.Button('Valider'),sg.Button('Annuler')]]
+        window2 = sg.Window('Noms et messagerie des joueurs', layout2,keep_on_top=True)
+        event,values = window2.read() 
+                #print(values2)
         if event == 'Valider':
             
             distributeur.noms=[]
@@ -111,7 +115,9 @@ def window_joueurs(distributeur,partie):
             # attribuer les nouveaux joueurs
             partie.initialise_joueurs()
             partie.etat=tr.CARTES_RASSEMBLEES
-        window.close()
+        window2.close()
+
+
 
 
 
@@ -169,12 +175,11 @@ def affiche_noms(canvas,partie):
         nom = str(i)+' : '+str(partie.joueurs[i])
         f_ = f.copy()
         if partie.joueur_index == i :
-            f_.configure(weight='bold')
-            print('affiche_nom_italic')
+            f_.configure(underline=True)
             #canvastk.create_text(coord_noms[0,i],coord_noms[1,i],fill="darkblue"
                 #,font=f_,text=nom,tags='nom_joueur')
         if partie.preneur_index == i:
-            f_.configure(underline=True)
+            f_.configure(weight='bold',slant='italic')
             #canvastk.create_text(coord_noms[0,i],coord_noms[1,i],fill="darkblue"
                 #,font=f_,text=nom,tags='nom_joueur')
         canvastk.create_text(coord_noms[0,i],coord_noms[1,i],fill="darkblue"
@@ -256,27 +261,19 @@ def affiche_entames(window,partie):
     
 
 
-
+# fenetre principale
+window = sg.Window('Tarot Confiné', layout,return_keyboard_events=True)
 window.read(timeout=100)
-
 f = tkFont.Font()
-f.configure(family="Times",size=20)          
+f.configure(family="Times",size=20)        
 """
 chargement des cartes
 """            
 images_cartes = load_image_cartes()            
-            
-
-#window.Refresh()
-
-
-
-window_active=True
-window2_active=False 
+#window.Disable() 
 window_organisateur(distributeur,partie)
 window_joueurs(distributeur,partie)
-
-
+#window.Enable()
 
 # Event Loop to process "events"
 while True:             
@@ -286,61 +283,41 @@ while True:
     elif event not in ('voir le jeu du prochain joueur','à propos','\r','aide rapide','licence',
                        'modifier les joueurs',"modifier l'organisateur",'annuler la partie','annuler le coup','Ok'):
         continue
-    if event in ('voir le jeu du prochain joueur','à propos')  and not window2_active:  
-        window2_active = True  
+
+        
+        
+    elif event in ('aide rapide','licence','à propos','voir le jeu du prochain joueur'):  
         window_active=False
-        if event == 'voir le jeu du prochain joueur':
-            texte = partie.affiche(joueur_index=partie.joueur_index)
+        size=(68,48)
+        texte = ''
+        if event=='licence':
+            file = open("./LICENSE", "r")
+            texte=file.read()
+            file.close()
+        elif event=='aide rapide':
+            file = open("./README.md","r",encoding='utf8')
+            texte=file.read()
+            file.close()
         elif event=='à propos':
             texte = """\n TAROT CONFINE \n \n Martin MORITZ - 2020 
             \n https://github.com/mapariel/tarot_confine \n\n Bon jeu !"""
-        layout2= [
-                    [sg.Text(text=texte,size=(50,8))],
-                    [sg.Button('Fermer')]
-                ]   
-        window2 = sg.Window(event, layout2,force_toplevel=True)
-        window2.read()
-        window2.Close()  
-        window2_active = False
-        window_active=True
-        continue
-    elif event in ("modifier l'organisateur"):                
-        window2_active = True  
-        window_active=False
-        window_organisateur(distributeur,partie)
-
-        window2_active = False
-        window_active=True
-        continue
-
-        
-        
-    elif event in ('aide rapide','licence')  and not window2_active:  
-        window2_active = True  
-        window_active=False
-        if event=='licence':
-            file = open("./LICENSE", "r")
-        elif event=='aide rapide':
-            file = open("./README.md","r",encoding='utf8')
-        layout2= [
-                    [sg.Multiline(default_text=file.read(),size=(68,40),background_color='white',text_color='black')],
-                    [sg.Button('Fermer')]
-        ]
-        window2 = sg.Window(event, layout2,force_toplevel=True)
-        window2.read()
-        file.close()
-        window2.Close()  
-        window2_active = False
-        window_active=True
+            size=(50,8)
+        elif event == 'voir le jeu du prochain joueur':
+             texte = partie.affiche(joueur_index=partie.joueur_index)
+             size=(50,8)
+        sg.popup_scrolled(texte,title=event,size=size)
+        window.active=True
         continue
     
-    
-    elif event == 'modifier les joueurs'  and not window2_active: 
-        window2_active = True  
-        window_active=False
+    elif event == 'modifier les joueurs':
+        window.Disable()
         window_joueurs(distributeur,partie)
-        window2_active = False
-        window_active=True
+        window.Enable()
+        continue
+    elif event == "modifier l'organisateur":
+        window.Disable()
+        window_organisateur(distributeur,partie)
+        window.Enable()
         continue
         
     
