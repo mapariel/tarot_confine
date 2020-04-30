@@ -3,7 +3,7 @@ Pour jouer au tarot, comme en vrai, avec ses amis pendant le confinement.
 Pour windows, vous pouvez télécharger l'exécutable http://gofile.me/48Z1V/AJFchqo2V
 
 ## Aspect technique
-Le code est testé avec Python 3.7.4, on a besoin des modules pysimplegui, pillow et numpy.
+Le code est testé avec Python 3.7.7, on a besoin des modules pysimplegui, pillow et numpy.
 
 ## Préparation de la partie
 
