@@ -46,7 +46,7 @@ animation = ANIM_NOT
 
 images_cartes = {}
 distributeur = Distributeur()
-partie = tr.Partie(donneur_index=0,distributeur=distributeur,debug=True)
+partie = tr.Partie(donneur_index=0,distributeur=distributeur,debug=False)
 message = partie.get_message()
 
 
