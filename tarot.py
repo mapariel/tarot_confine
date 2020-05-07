@@ -125,6 +125,9 @@ class Pli:
         """
         self.cartes[index]=carte
     
+    
+
+    
     def complet(self):
         """
         Returns :
@@ -381,6 +384,20 @@ class Partie:
         return score
     
     
+    def tours_restants(self):
+        """
+        Calcule le nombre de tours restant à joueur dans cette partie
+        Returns
+        -------
+        tours : int 
+        """
+        n_cartes = [len(j.main) for j in self.joueurs ]
+        n_cartes[self.preneur_index] = n_cartes[self.preneur_index]-6 
+        tour = np.sort(n_cartes)[-1]
+        return tour
+        
+        
+    
     def finie(self):
         """
         Returns :
@@ -473,13 +490,17 @@ class Partie:
     def annuler_coup(self):
         """
         Lorsqu'un pli est en cours, cela annule la dernière carte jouée
+        Si on joue la première carte du pli, ne fait rien
         """
+        if self.joueur_index == self.entame_index:
+            return self.pli.cartes
+        
         self.joueur_index = self.index_direction_suivante(self.joueur_index,sens=-1)
         #self.joueur_index = (self.joueur_index-1)%self.nombre()  
         carte = self.pli.cartes[self.joueur_index]
         self.joueur().main[carte.abbr]=carte
         self.pli.cartes[self.joueur_index]=None
-        return  self.pli.cartes,False
+        return  self.pli.cartes
 
 
 
@@ -777,10 +798,9 @@ class Partie:
             if entry_input == 'VOIR':
                 message =self.affiche(joueur_index = self.joueur_index)
             if entry_input=='A':
-                cartes,_ = self.annuler_coup()
+                cartes = self.annuler_coup()
                 cartes = [(carte.abbr if carte  else "_") for carte in cartes]
                 self.etat = PLI_EN_COURS
-                message = "Le coup est annulé."
             else :
                 cartes,complet = self.jouer(entry_input)
                 if cartes :
@@ -789,10 +809,9 @@ class Partie:
                         self.etat = PLI_FINI
         elif self.etat == PLI_FINI:
             if entry_input=='A':
-                cartes,_ = self.annuler_coup()
+                cartes = self.annuler_coup()
                 cartes = [(carte.abbr if carte  else "_") for carte in cartes]
                 self.etat = PLI_EN_COURS
-                message = "Le coup est annulé."
             else :
                 echange_excuse = self.emporter_pli()
                 if echange_excuse  :
