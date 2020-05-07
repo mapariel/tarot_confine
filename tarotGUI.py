@@ -8,28 +8,46 @@ Created on Wed Apr 22 13:29:26 2020
 
 import PySimpleGUI as sg
 import PIL as pil  # ImageTk,Image
-import PIL.ImageTk as pitk
-import PIL.ImageDraw as pildraw
-import PIL.ImageFont as pilfont
-import tkinter.font as tkFont
+import PIL.Image as pilim
 import tarot as tr
 from mail import Distributeur
 import numpy as np
 import time
+import csv 
+from io import BytesIO
+import base64
 
 sg.theme('DarkAmber')   # Add a little color to your windows
 # All the stuff inside your window. This is the PSG magic code compactor...
 # les dimensions du tapis de jeu
-width = 1000
-height = 700
+
+# taille initiale du tapis et des cartes
+WIDTH = 800
+HEIGHT = 600
+W_CARTE = 120
+H_CARTE = 214
+W_NOM = 100
+H_NOM = 20
+# constante utilisee pour calculer les coordonnees d'affichage
+AFFICHAGE_LIGNE = 0
+AFFICHAGE_CERCLE = 1
+AFFICHAGE_NOMS = 2
+
+# lors des animations (calcul du score)
+# animation est mis sur start
+# puis sur stop a la fin
+# pour ne lancer l'animation qu'une seule fois
+ANIM_NOT = 0
+ANIM_START = 1
+ANIM_STOP = 2
+animation = ANIM_NOT
+
+
+
 images_cartes = {}
 distributeur = Distributeur()
-partie = tr.Partie(donneur_index=0,distributeur=distributeur,debug=False)
+partie = tr.Partie(donneur_index=0,distributeur=distributeur,debug=True)
 message = partie.get_message()
-
-
-
-#print(values)
 
 
 
@@ -59,13 +77,191 @@ menu_def=[
 
 layout = [
            [sg.Menu(menu_def)], 
-           [sg.Text('Historique')],
+           [sg.Text('Zoom'),
+            sg.Slider(range=(100,150),default_value=100,orientation='horizontal',
+                     key='zoom',enable_events=True,tick_interval=50),
+            sg.Sizer(h_pixels=(WIDTH+80)/2,v_pixels=2),
+            sg.Text(text='compteur : '),
+            sg.Text(text='--',text_color='black',background_color='white',
+                    font=('Monospace',16),key='compteur',size=(4,1),justification='center')
+            ],
            [sg.Column(colonne),
-                     sg.Canvas(size=(width,height),background_color='green', key='canvas')],
+            sg.Graph((WIDTH,HEIGHT),(0,HEIGHT),(WIDTH,0),background_color='green',key='tapis')],
         ]  
-        
-# Create the Window           
 
+
+def get_coordonnee(n_elements,affichage,compact=False):
+    """
+    Parameters
+    ----------
+    n_elements : TYPE
+        DESCRIPTION.
+    affichage : TYPE
+        DESCRIPTION.
+    compact: Boolean
+        False : les cartes en ligne utilisent la largeur disponible
+    Returns
+    -------
+    coordonnees : TYPE
+        DESCRIPTION.
+    """
+    # affichage centre horizontal 
+    if affichage == AFFICHAGE_LIGNE:
+        coordonnees = np.ones(shape=(n_elements,2))
+        coordonnees[:,1] = coordonnees[:,0]*(HEIGHT-H_CARTE)/2
+
+        if compact :
+            coordonnees[:,0] = WIDTH/2-0.9*W_CARTE*n_elements/2+np.arange(n_elements)*W_CARTE*0.9
+        else:
+            coordonnees[:,0] = np.arange(n_elements)*(WIDTH-2*W_NOM-W_CARTE)/(n_elements-1)+W_NOM
+        return coordonnees
+    if affichage in(AFFICHAGE_CERCLE,AFFICHAGE_NOMS) :
+        angles = np.arange(n_elements)
+        angles = angles*2*np.pi/n_elements
+        #angles = np.array(angles)
+        centre = np.array([WIDTH/2,HEIGHT/2])
+        if affichage == AFFICHAGE_CERCLE :
+            rayon_h = (WIDTH-2*W_NOM-W_CARTE)/4
+            rayon_v = (HEIGHT - 2*H_NOM-H_CARTE)/4
+        elif affichage == AFFICHAGE_NOMS :
+            rayon_h = (WIDTH-2*W_NOM)/2
+            rayon_v = (HEIGHT-2*H_NOM)/2
+        centre.shape=(1,2)
+        coordonnees = centre+np.vstack((rayon_h*np.cos(-angles),rayon_v*np.sin(-angles))).T
+        if affichage == AFFICHAGE_CERCLE :
+            coordonnees = coordonnees-[W_CARTE/2,H_CARTE/2]
+        return coordonnees
+
+
+def load_images_cartes():
+    """
+    Loads the images of the cards. This function is called once for all at the beginning
+    returns:
+        a dictionary with the images
+    """
+    images_cartes = {}
+    with open('cartes.csv', newline='') as csvfile:
+        reader = csv.reader(csvfile)
+        for line in reader:
+            abbr = line[4]
+            im = pilim.open('cartes/'+abbr+'.png')
+            im = im.resize((W_CARTE, H_CARTE))
+            images_cartes[abbr] = im
+    return images_cartes     
+
+def scale_image_cartes(images_cartes,zoom,cartes):
+    """
+    calcules the scaled picture(accroding to the zoom) of the cards, only for cards that are visible on the screen
+    returns :
+        a dictionary with the scaled pictures
+    """
+    scaled_images_cartes = {}
+    for carte in cartes:
+        if carte is None:
+            continue 
+        abbr = carte.abbr
+        im = images_cartes[abbr]
+        (width, height) = (int(im.width *zoom) , int(im.height*zoom))
+        im_resized = im.resize((width, height))
+        buffered = BytesIO()
+        im_resized.save(buffered, format="PNG")
+        img_str = base64.b64encode(buffered.getvalue())
+        scaled_images_cartes[abbr] = img_str
+    return scaled_images_cartes 
+
+
+        
+def update_noms(tapis,partie,zoom):
+    """
+    affiche les noms sur le tapis
+    """ 
+    noms = [j.nom for j in  partie.joueurs]
+    coordonnees = get_coordonnee(partie.nombre(), AFFICHAGE_NOMS)*zoom
+    for i,nom in enumerate(noms):
+        nom = "{}: {}".format(i,nom)
+        style= ''
+        if i == partie.preneur_index:
+            style = 'bold italic '
+        if i == partie.joueur_index and not partie.pli.complet():
+            style = style+'underline'
+            
+        tapis.DrawText(nom,font=('Any',16,style),color='darkblue',
+                       location=(coordonnees[i,0],coordonnees[i,1]))  
+        
+        
+    
+
+def update_cartes(tapis,cartes,coordonnees,images_cartes,zoom,lot_de_cartes=0): 
+    """
+    affiche les cartes sur le tapis aux coordonnées indiquées
+    Args :
+        cartes              : un tableau contenant les cartes à afficher
+        coordonnees         : un array numpy de shape (len(cartes),2)
+        coordonnees images  : le tableau qui contient toutes les cartes
+        zoom                : le niveau de zoom à afficher
+        lot_de_cartes           : entier, affiche les cartes par lot dans le cas d'une animation
+        
+    """ 
+    global animation
+    images_cartes = scale_image_cartes(images_cartes,zoom,cartes)
+    coordonnees = coordonnees*zoom
+    for i,carte in enumerate(cartes):
+        if carte is None: 
+            continue
+        if lot_de_cartes !=0 : index = i % lot_de_cartes
+        else : index = i
+        tapis.DrawImage(data = images_cartes[carte.abbr],location=(coordonnees[index,0],coordonnees[index,1]))
+        if lot_de_cartes !=0 and index == lot_de_cartes-1:
+            score = sum(c.points for c in cartes[:i+1])
+            window['compteur'].update('{:d}'.format(int(score)).zfill(2))
+            time.sleep(0.5)
+            coordonnees = coordonnees+[0.005*W_CARTE*zoom,0.005*H_CARTE*zoom]
+            window.Refresh()
+    if animation == ANIM_START:
+         animation = ANIM_STOP
+
+    
+        
+def update(tapis,partie,images_cartes,zoom):
+    """
+    Met à jour l'affichage de la partie :
+    Selon la phase de jeu
+    1_affiche le noms des joueurs    
+    2_selon la phase de jeu affiche les cartes sur le tapis
+    """
+    tapis.erase()
+    lot_de_cartes = 0
+    update_noms(tapis,partie,zoom)
+    if partie.etat == tr.PLI_EN_COURS:
+        window['compteur'].update(str(partie.tours_restants()).zfill(2))
+    
+    if partie.etat == tr.AFFICHAGE_CHIEN:
+        coordonnees = get_coordonnee(6, AFFICHAGE_LIGNE)
+        cartes = partie.chien
+    elif partie.etat == tr.PARTIE_FINIE:
+        coordonnees = get_coordonnee(6, AFFICHAGE_LIGNE)
+        cartes = list(partie.preneur().main.values())
+        update_cartes(tapis,cartes,coordonnees,images_cartes,zoom)
+        
+    elif partie.etat in (tr.PLI_EN_COURS,tr.PLI_FINI):
+        coordonnees = get_coordonnee(partie.nombre(), AFFICHAGE_CERCLE)
+        cartes = partie.pli.cartes
+        cartes = cartes[partie.entame_index:]+cartes[:partie.entame_index]
+        coordonnees = np.vstack((coordonnees[partie.entame_index:,:],coordonnees[:partie.entame_index,:]))
+    elif partie.etat  == tr.AFFICHAGE_SCORE:
+        if animation == ANIM_START:
+            cartes = partie.levee[0]
+            coordonnees = get_coordonnee(2, AFFICHAGE_LIGNE,compact=True)
+            lot_de_cartes = 2
+        elif animation == ANIM_STOP :
+            cartes = partie.levee[0][-2:]
+            coordonnees = get_coordonnee(2, AFFICHAGE_LIGNE,compact=True)
+            lot_de_cartes = 0
+    else:
+        return
+    update_cartes(tapis,cartes,coordonnees,images_cartes,zoom,lot_de_cartes)
+    
+        
 
 def window_organisateur(distributeur,partie):
         email = distributeur.email_user
@@ -80,7 +276,6 @@ def window_organisateur(distributeur,partie):
         window2 = sg.Window("messagerie de l'organisateur", layout,keep_on_top=True)
         event,values = window2.read()
         if event == 'Valider':
-            print('ici')
             distributeur.email_user = values['username']
             distributeur.email_password = values['password']
         window2.close()
@@ -122,131 +317,6 @@ def window_joueurs(distributeur,partie):
 
 
 
-
-
-def load_image_cartes():
-
-    f2 = pilfont.truetype("arial.ttf", 22)
-    
-    for carte in partie.jeu:
-        abbr = carte.abbr
-        img = pil.Image.open('cartes/'+abbr+'.jpg')
-        if carte.famille != 'atout':
-            if carte.famille == "coeur" or carte.famille == "carreau":
-                color = (203,95,66)
-            else :
-                color = (0,0,0)
-            if carte.valeur<11:
-                pildraw.Draw(img).text((5,5),str(carte.valeur),color,font=f2)
-                if carte.valeur==10:
-                    pildraw.Draw(img).text((107,5),str(carte.valeur),color,font=f2)
-                else :
-                    pildraw.Draw(img).text((115,5),str(carte.valeur),color,font=f2)
-                img = img.rotate(180)
-                if carte.valeur==10:
-                    pildraw.Draw(img).text((107,5),str(carte.valeur),color,font=f2)                    
-                else :
-                    pildraw.Draw(img).text((115,5),str(carte.valeur),color,font=f2)
-                pildraw.Draw(img).text((5,5),str(carte.valeur),color,font=f2)
-                
-        img2 = pitk.PhotoImage(img)
-        images_cartes[abbr] =  img2
-    return images_cartes
-
-
-def affiche_noms(canvas,partie):
-    """
-    Affiche les noms des joueurs
-    """
-    width,height = canvas.Size
-    canvastk = canvas.tk_canvas 
-    global f
-    canvastk.delete('nom_joueur')    
-
-    n = partie.nombre()
-    angles = np.arange(n)
-    angles = angles*2*np.pi/n
-    angles = np.array(angles)
-    centre = np.array([width/2,height/2])
-    centre.shape=(2,1)
-    
-    coord_noms = centre+np.vstack((width*0.4*np.cos(-angles),height*0.45*np.sin(-angles)))
-    for i in range(n):
-        nom = str(i)+' : '+str(partie.joueurs[i])
-        f_ = f.copy()
-        if partie.joueur_index == i :
-            f_.configure(underline=True)
-            #canvastk.create_text(coord_noms[0,i],coord_noms[1,i],fill="darkblue"
-                #,font=f_,text=nom,tags='nom_joueur')
-        if partie.preneur_index == i:
-            f_.configure(weight='bold',slant='italic')
-            #canvastk.create_text(coord_noms[0,i],coord_noms[1,i],fill="darkblue"
-                #,font=f_,text=nom,tags='nom_joueur')
-        canvastk.create_text(coord_noms[0,i],coord_noms[1,i],fill="darkblue"
-                ,font=f_,text=nom,tags='nom_joueur')
-    canvastk.update()  
-
-
-def affiche_cartes(canvas,partie,cartes,images_cartes):
-    """
-    Affiche les cartes de la parties, la disposition change en fonction du nombre de
-    cartes : 4 (un pli), 6 (chien ou écart), sinon (levée)
-    """
-    # les joueurs sont 0: Nord, 1 : Ouest, 2 :sud, 3. Est
-    width,height = canvas.Size
-    canvastk = canvas.tk_canvas
-    # efface toutes les cartes (avec le tag carte)
-    canvastk.delete('carte')
-    global f
-    
-    
-    
-    if partie.etat in (tr.PLI_EN_COURS,tr.PLI_FINI ):
-        n = partie.nombre()
-        angles = np.arange(n)
-        angles = angles*2*np.pi/n
-        angles = np.array(angles)
-        centre = np.array([width/2,height/2])
-        centre.shape=(2,1)
-        coord = centre+100*np.vstack((np.cos(-angles),np.sin(-angles)))
-        coord[0,:] = coord[0,:]+np.cos(-angles)*20
-
-        cartes = cartes[partie.entame_index:]+cartes[:partie.entame_index]
-        coord = np.hstack((coord[:,partie.entame_index:],coord[:,:partie.entame_index]))
-        for i in range(n):
-            carte = cartes[i]
-            if carte != '_':
-              img = images_cartes[carte]
-              canvastk.create_image(coord[0,i],coord[1,i],image=img,tags='carte') 
-    elif partie.etat in (tr.PASSE,tr.ECART,tr.AFFICHAGE_SCORE ):
-        x = 200
-        dx = width-500
-        for i,carte in enumerate(cartes) :
-            img = images_cartes[carte]
-            x = x+dx/len(cartes)
-            canvastk.create_image(x,height/2,image=img,tags='carte') 
-    elif partie.etat in (tr.PARTIE_TERMINEE,) :
-        compteur = 0 
-        score = canvastk.create_text(width/2,height-200,fill='black',font=f,text=str(compteur),tags=('score','carte')  )
-        iterator = iter(partie.levee[0]) 
-        while True :
-            coord = [[width/2-50,height/2],[width/2+50,height/2]] +np.random.normal(loc=0.0, scale=10,size =(2,2))
-            try:
-                carte1 =next(iterator)
-                carte2 =next(iterator)
-                compteur +=  carte1.points+carte2.points
-                img1 = images_cartes[carte1.abbr]
-                img2 = images_cartes[carte2.abbr]
-                canvastk.create_image(coord[0,1],coord[0,1],image=img1,tags='carte') 
-                canvastk.create_image(coord[1,0],coord[1,1],image=img2,tags='carte')
-                canvastk.delete('score')
-                score = canvastk.create_text(width/2,height-200,fill='black',font=f,text=str(compteur),tags=('score','carte')  )
-                time.sleep(0.5)
-                canvastk.update()
-            except StopIteration:
-                break
-           
-
 def affiche_entames(window,partie):
     for famille in ['pique','carreau','coeur','trefle']:
         if partie.entames[famille]:
@@ -257,35 +327,35 @@ def affiche_entames(window,partie):
         window['INFOS_atout'].update(str(partie.entames['atout']))
     else:
         window['INFOS_atout'].update('')
-            
+           
     
 
 
 # fenetre principale
-window = sg.Window('Tarot Confiné', layout,return_keyboard_events=True)
-window.read(timeout=100)
-f = tkFont.Font()
-f.configure(family="Times",size=20)        
+window = sg.Window('Tarot Confiné', layout,return_keyboard_events=True,resizable=True)
+window.read(timeout=100)      
 """
 chargement des cartes
 """            
-images_cartes = load_image_cartes()            
+images_cartes = load_images_cartes()            
 #window.Disable() 
 window_organisateur(distributeur,partie)
 window_joueurs(distributeur,partie)
 #window.Enable()
-
+zoom = 1
 # Event Loop to process "events"
+window['tapis'].expand(expand_x=True,expand_y=True)
+window.read(timeout=100)
+
 while True:             
     event, values = window.read(timeout=100)
     if event in (None, 'quitter'):
         break
-    elif event not in ('voir le jeu du prochain joueur','à propos','\r','aide rapide','licence',
-                       'modifier les joueurs',"modifier l'organisateur",'annuler la partie','annuler le coup','Ok'):
-        continue
-
-        
-        
+    window['tapis'].expand(expand_x=True,expand_y=True)
+    update(window['tapis'],partie,images_cartes,zoom)
+    if event in ('zoom'):
+        zoom = float(values['zoom'])/100     
+       
     elif event in ('aide rapide','licence','à propos','voir le jeu du prochain joueur'):  
         window_active=False
         size=(68,48)
@@ -299,8 +369,9 @@ while True:
             texte=file.read()
             file.close()
         elif event=='à propos':
-            texte = """\n TAROT CONFINE \n \n Martin MORITZ - 2020 
-            \n https://github.com/mapariel/tarot_confine \n\n Bon jeu !"""
+               
+            texte = """\n TAROT CONFINE \n \n Martin MORITZ - 2020 \n https://github.com/mapariel/tarot_confine \n\n Bon jeu !"""
+   
             size=(50,8)
         elif event == 'voir le jeu du prochain joueur':
              texte = partie.affiche(joueur_index=partie.joueur_index)
@@ -322,25 +393,28 @@ while True:
         
     
     if event in ('annuler la partie'):
-        entry_input = 'FIN'  
+        window['-INPUT-'].update('FIN')
     elif event in ('annuler le coup'):
-        entry_input = 'A'  
-    elif event in ('Ok','\r'):
-        #if True: #values['-INPUT-']:
+        window['-INPUT-'].update('A')   
+    
+    if event in ('Ok','\r'):
         entry_input =  values['-INPUT-']
-        print("{:>50}".format(entry_input))
+        if entry_input!='' : window['-OUTPUT-'].print("{:>50}".format(entry_input))
         window['-INPUT-'].update('')
-    message,cartes = partie.action(entry_input)
-    #if partie.etat in (tr.DISTRIBUE,tr.ECART,tr.CARTES_RASSEMBLEES,tr.PLI_EN_COURS):
-    affiche_noms(window['canvas'],partie)
-    if len(cartes)>0 or partie.etat==tr.PRET :
-        window['-OUTPUT-'].print(' '.join(cartes))
-        affiche_cartes(window['canvas'],partie,cartes,images_cartes)
-    affiche_entames(window,partie)
-    window['-OUTPUT-'].print(message)
-    message = partie.get_message()
-    window['-OUTPUT-'].print(message)
-            
+        message,cartes = partie.action(entry_input)
+        if len(cartes)>0 or partie.etat==tr.PRET :
+            window['-OUTPUT-'].print(' '.join(cartes))
+        #affiche_entames(window,partie)
+        window['-OUTPUT-'].print(message)
+        message = partie.get_message()
+        window['-OUTPUT-'].print(message)
+        affiche_entames(window,partie)
+        if partie.etat == tr.AFFICHAGE_SCORE:
+            if animation == ANIM_NOT:
+                animation = ANIM_START
+        else :
+            animation = ANIM_NOT
+          
        
 
 window.close()
