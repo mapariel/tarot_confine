@@ -81,20 +81,11 @@ class Joueur:
             return([carte for carte in main ] ) 
 
     # 
-    def joue(self,abbr,famille):
+    def joue(self,abbr):
         """
         retourne la carte de ce joueur qui correspond à l'abbréviation
-        quand l'abbréviation est courte (1 caractère) envoie la carte de la famille
-        si elle existe.
-        Il y a le problème de l'écart....
         """
-        carte =None
-        #if famille :
-        #    if famille != 'atout':
-        #        if len(abbr)==1 or abbr=='10':
-        #            abbr = abbr+famille[0:2]
-        #            carte =  self.main.pop(abbr,None)
-        #if carte is None :    
+        carte =None    
         carte =  self.main.pop(abbr,None)
         return carte
         
@@ -492,6 +483,9 @@ class Partie:
         Lorsqu'un pli est en cours, cela annule la dernière carte jouée
         Si on joue la première carte du pli, ne fait rien
         """
+        if not self.etat in (PLI_EN_COURS,PLI_FINI):
+            return None
+        
         if self.joueur_index == self.entame_index:
             return self.pli.cartes
         
@@ -527,11 +521,8 @@ class Partie:
                      abbr = list(joueur.main.values())[0].abbr         
                  except IndexError:
                      print('line 507 IndexError')
-             famille = None        
-             if self.joueur_index != self.entame_index:
-                famille = self.pli.cartes[self.entame_index].famille
                 
-             carte = joueur.joue(abbr,famille)
+             carte = joueur.joue(abbr)
              cartes = self.pli.cartes
              # la carte jouée n'existe pas
              if carte is None : 
@@ -863,8 +854,6 @@ if __name__ == "__main__":
     partie = Partie(donneur_index=donneur,n_joueurs=5,debug=False)
     
     while True:
-        
-
         message = partie.get_message() 
         reponse = input(message)
         message,cartes  = partie.action(reponse)

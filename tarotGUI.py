@@ -214,7 +214,7 @@ def update_cartes(tapis,cartes,coordonnees,images_cartes,zoom,lot_de_cartes=0):
         if lot_de_cartes !=0 and index == lot_de_cartes-1:
             score = sum(c.points for c in cartes[:i+1])
             window['compteur'].update('{:d}'.format(int(score)).zfill(2))
-            time.sleep(0.5)
+            time.sleep(1)
             coordonnees = coordonnees+[0.005*W_CARTE*zoom,0.005*H_CARTE*zoom]
             window.Refresh()
     if animation == ANIM_START:
@@ -349,6 +349,8 @@ window.read(timeout=100)
 
 while True:             
     event, values = window.read(timeout=100)
+    if event and len(event)==1 and event != '\r':
+        continue 
     if event in (None, 'quitter'):
         break
     window['tapis'].expand(expand_x=True,expand_y=True)
@@ -381,22 +383,25 @@ while True:
         continue
     
     elif event == 'modifier les joueurs':
-        window.Disable()
+        #window.Disable()
         window_joueurs(distributeur,partie)
-        window.Enable()
+        #window.Enable()
         continue
     elif event == "modifier l'organisateur":
-        window.Disable()
+        #window.Disable()
         window_organisateur(distributeur,partie)
-        window.Enable()
+        #window.Enable()
         continue
         
     
-    if event in ('annuler la partie'):
-        window['-INPUT-'].update('FIN')
+    elif event in ('annuler la partie'):
+         partie.etat = tr.PARTIE_TERMINEE
+         message = partie.get_message()
+         window['-OUTPUT-'].print(message)
+         continue 
     elif event in ('annuler le coup'):
-        window['-INPUT-'].update('A')   
-    
+        partie.annuler_coup()
+        
     if event in ('Ok','\r'):
         entry_input =  values['-INPUT-']
         if entry_input!='' : window['-OUTPUT-'].print("{:>50}".format(entry_input))
