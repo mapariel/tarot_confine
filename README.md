@@ -1,5 +1,5 @@
 # Tarot confiné
-Pour jouer au tarot, comme en vrai, avec ses amis pendant le confinement.
+Pour jouer au tarot, comme en vrai, avec ses amis et en visionconférence.
 Pour windows, vous pouvez télécharger l'exécutable http://gofile.me/48Z1V/AJFchqo2V
 
 ## Aspect technique
