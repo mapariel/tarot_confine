@@ -1,425 +1,683 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed Apr 22 13:29:26 2020
+Created on Wed Aug 26 09:14:09 2020
 
-@author: MartinMoritz
+@author: martin
 """
-
 
 import PySimpleGUI as sg
-import PIL as pil  # ImageTk,Image
-import PIL.Image as pilim
-import tarot as tr
-from mail import Distributeur
-import numpy as np
-import time
-import csv 
-from io import BytesIO
+import PIL.Image
+import io
 import base64
+import math 
+import threading 
+import server_tarot as sv
+import tarot as ta
 
-sg.theme('DarkAmber')   # Add a little color to your windows
-# All the stuff inside your window. This is the PSG magic code compactor...
-# les dimensions du tapis de jeu
 
-# taille initiale du tapis et des cartes
-WIDTH = 800
-HEIGHT = 600
+# for the nework connexions
+import socket
+import types
+# import  select
+import selectors
+import xml.dom.minidom as dom
+
+# import logging
+# logging.basicConfig(level=logging.WARNING)
+
+
+
+sg.theme('DarkAmber')
+WIDTH = 1200
+HEIGHT = 900
 W_CARTE = 120
 H_CARTE = 214
-W_NOM = 100
-H_NOM = 20
-# constante utilisee pour calculer les coordonnees d'affichage
-AFFICHAGE_LIGNE = 0
-AFFICHAGE_CERCLE = 1
-AFFICHAGE_NOMS = 2
-
-# lors des animations (calcul du score)
-# animation est mis sur start
-# puis sur stop a la fin
-# pour ne lancer l'animation qu'une seule fois
-ANIM_NOT = 0
-ANIM_START = 1
-ANIM_STOP = 2
-animation = ANIM_NOT
 
 
+selector = selectors.DefaultSelector()
 
-images_cartes = {}
-distributeur = Distributeur()
-partie = tr.Partie(donneur_index=0,distributeur=distributeur,debug=False)
-message = partie.get_message()
+# messages from and to the server 
+msg = {"command":"".encode(),"infos":""} 
+# command = "".encode()
+# infos = ""
 
 
 
 
 
-"""
-Définition de l'interface graphique
-"""
-entames = [ [sg.Text(size=(16,1),key='INFOS_'+famille,font=('Helvetica',14),text_color='white',justification='center')]   
-                        for famille in ['pique','coeur','carreau','trefle','atout']   ] 
 
-
-colonne =[ [sg.Multiline(default_text=message,disabled=True,size=(30,20),key='-OUTPUT-',font=('Helvetica',12),autoscroll=True)],
-            [sg.InputText(size=(10,1),key='-INPUT-',font=('Monospace', 16)),
-             sg.Button('Ok'),sg.Button('Cancel'),
-             ]
-          ]  
-colonne = colonne+entames           
-          
-menu_def=[
-          ['&Paramètres',["modifier l'&organisateur",'modifier les &joueurs','&quitter']],
-          ['&Jeu',['annuler la &partie','annuler le &coup','&voir le jeu du prochain joueur']] , 
-          ['&Aide',['&aide rapide','&licence','à &propos']]
-         ]
-
-            
-
-layout = [
-           [sg.Menu(menu_def)], 
-           [sg.Text('Zoom'),
-            sg.Slider(range=(100,150),default_value=100,orientation='horizontal',
-                     key='zoom',enable_events=True,tick_interval=50),
-            sg.Sizer(h_pixels=(WIDTH+80)/2,v_pixels=2),
-            sg.Text(text='compteur : '),
-            sg.Text(text='--',text_color='black',background_color='white',
-                    font=('Monospace',16),key='compteur',size=(4,1),justification='center')
-            ],
-           [sg.Column(colonne),
-            sg.Graph((WIDTH,HEIGHT),(0,HEIGHT),(WIDTH,0),background_color='green',key='tapis')],
-        ]  
-
-
-def get_coordonnee(n_elements,affichage,compact=False):
-    """
-    Parameters
-    ----------
-    n_elements : TYPE
-        DESCRIPTION.
-    affichage : TYPE
-        DESCRIPTION.
-    compact: Boolean
-        False : les cartes en ligne utilisent la largeur disponible
-    Returns
-    -------
-    coordonnees : TYPE
-        DESCRIPTION.
-    """
-    # affichage centre horizontal 
-    if affichage == AFFICHAGE_LIGNE:
-        coordonnees = np.ones(shape=(n_elements,2))
-        coordonnees[:,1] = coordonnees[:,0]*(HEIGHT-H_CARTE)/2
-
-        if compact :
-            coordonnees[:,0] = WIDTH/2-0.9*W_CARTE*n_elements/2+np.arange(n_elements)*W_CARTE*0.9
-        else:
-            coordonnees[:,0] = np.arange(n_elements)*(WIDTH-2*W_NOM-W_CARTE)/(n_elements-1)+W_NOM
-        return coordonnees
-    if affichage in(AFFICHAGE_CERCLE,AFFICHAGE_NOMS) :
-        angles = np.arange(n_elements)
-        angles = angles*2*np.pi/n_elements
-        #angles = np.array(angles)
-        centre = np.array([WIDTH/2,HEIGHT/2])
-        if affichage == AFFICHAGE_CERCLE :
-            rayon_h = (WIDTH-2*W_NOM-W_CARTE)/4
-            rayon_v = (HEIGHT - 2*H_NOM-H_CARTE)/4
-        elif affichage == AFFICHAGE_NOMS :
-            rayon_h = (WIDTH-2*W_NOM)/2
-            rayon_v = (HEIGHT-2*H_NOM)/2
-        centre.shape=(1,2)
-        coordonnees = centre+np.vstack((rayon_h*np.cos(-angles),rayon_v*np.sin(-angles))).T
-        if affichage == AFFICHAGE_CERCLE :
-            coordonnees = coordonnees-[W_CARTE/2,H_CARTE/2]
-        return coordonnees
-
-
-def load_images_cartes():
-    """
-    Loads the images of the cards. This function is called once for all at the beginning
-    returns:
-        a dictionary with the images
-    """
-    images_cartes = {}
-    with open('cartes.csv', newline='') as csvfile:
-        reader = csv.reader(csvfile)
-        for line in reader:
-            abbr = line[4]
-            im = pilim.open('cartes/'+abbr+'.png')
-            im = im.resize((W_CARTE, H_CARTE))
-            images_cartes[abbr] = im
-    return images_cartes     
-
-def scale_image_cartes(images_cartes,zoom,cartes):
-    """
-    calcules the scaled picture(accroding to the zoom) of the cards, only for cards that are visible on the screen
-    returns :
-        a dictionary with the scaled pictures
-    """
-    scaled_images_cartes = {}
-    for carte in cartes:
-        if carte is None:
-            continue 
-        abbr = carte.abbr
-        im = images_cartes[abbr]
-        (width, height) = (int(im.width *zoom) , int(im.height*zoom))
-        im_resized = im.resize((width, height))
-        buffered = BytesIO()
-        im_resized.save(buffered, format="PNG")
-        img_str = base64.b64encode(buffered.getvalue())
-        scaled_images_cartes[abbr] = img_str
-    return scaled_images_cartes 
-
-
-        
-def update_noms(tapis,partie,zoom):
-    """
-    affiche les noms sur le tapis
-    """ 
-    noms = [j.nom for j in  partie.joueurs]
-    coordonnees = get_coordonnee(partie.nombre(), AFFICHAGE_NOMS)*zoom
-    for i,nom in enumerate(noms):
-        nom = "{}: {}".format(i,nom)
-        style= ''
-        if i == partie.preneur_index:
-            style = 'bold italic '
-        if i == partie.joueur_index and not partie.pli.complet():
-            style = style+'underline'
-            
-        tapis.DrawText(nom,font=('Any',16,style),color='darkblue',
-                       location=(coordonnees[i,0],coordonnees[i,1]))  
-        
-        
-    
-
-def update_cartes(tapis,cartes,coordonnees,images_cartes,zoom,lot_de_cartes=0): 
-    """
-    affiche les cartes sur le tapis aux coordonnées indiquées
-    Args :
-        cartes              : un tableau contenant les cartes à afficher
-        coordonnees         : un array numpy de shape (len(cartes),2)
-        coordonnees images  : le tableau qui contient toutes les cartes
-        zoom                : le niveau de zoom à afficher
-        lot_de_cartes           : entier, affiche les cartes par lot dans le cas d'une animation
-        
-    """ 
-    global animation
-    images_cartes = scale_image_cartes(images_cartes,zoom,cartes)
-    coordonnees = coordonnees*zoom
-    for i,carte in enumerate(cartes):
-        if carte is None: 
-            continue
-        if lot_de_cartes !=0 : index = i % lot_de_cartes
-        else : index = i
-        tapis.DrawImage(data = images_cartes[carte.abbr],location=(coordonnees[index,0],coordonnees[index,1]))
-        if lot_de_cartes !=0 and index == lot_de_cartes-1:
-            score = sum(c.points for c in cartes[:i+1])
-            window['compteur'].update('{:d}'.format(int(score)).zfill(2))
-            time.sleep(1)
-            coordonnees = coordonnees+[0.005*W_CARTE*zoom,0.005*H_CARTE*zoom]
-            window.Refresh()
-    if animation == ANIM_START:
-         animation = ANIM_STOP
-
-    
-        
-def update(tapis,partie,images_cartes,zoom):
-    """
-    Met à jour l'affichage de la partie :
-    Selon la phase de jeu
-    1_affiche le noms des joueurs    
-    2_selon la phase de jeu affiche les cartes sur le tapis
-    """
-    tapis.erase()
-    lot_de_cartes = 0
-    update_noms(tapis,partie,zoom)
-    if partie.etat == tr.PLI_EN_COURS:
-        window['compteur'].update(str(partie.tours_restants()).zfill(2))
-    
-    if partie.etat == tr.AFFICHAGE_CHIEN:
-        coordonnees = get_coordonnee(6, AFFICHAGE_LIGNE)
-        cartes = partie.chien
-    elif partie.etat == tr.PARTIE_FINIE:
-        coordonnees = get_coordonnee(6, AFFICHAGE_LIGNE)
-        cartes = list(partie.preneur().main.values())
-        update_cartes(tapis,cartes,coordonnees,images_cartes,zoom)
-        
-    elif partie.etat in (tr.PLI_EN_COURS,tr.PLI_FINI):
-        coordonnees = get_coordonnee(partie.nombre(), AFFICHAGE_CERCLE)
-        cartes = partie.pli.cartes
-        cartes = cartes[partie.entame_index:]+cartes[:partie.entame_index]
-        coordonnees = np.vstack((coordonnees[partie.entame_index:,:],coordonnees[:partie.entame_index,:]))
-    elif partie.etat  == tr.AFFICHAGE_SCORE:
-        if animation == ANIM_START:
-            cartes = partie.levee[0]
-            coordonnees = get_coordonnee(2, AFFICHAGE_LIGNE,compact=True)
-            lot_de_cartes = 2
-        elif animation == ANIM_STOP :
-            cartes = partie.levee[0][-2:]
-            coordonnees = get_coordonnee(2, AFFICHAGE_LIGNE,compact=True)
-            lot_de_cartes = 0
+def convert_to_bytes(file_or_bytes, resize=None):
+    '''
+    Will convert into bytes and optionally resize an image that is a file or a base64 bytes object.
+    Turns into  PNG format in the process so that can be displayed by tkinter
+    :param file_or_bytes: either a string filename or a bytes base64 image object
+    :type file_or_bytes:  (Union[str, bytes])
+    :param resize:  optional new size
+    :type resize: (Tuple[int, int] or None)
+    :return: (bytes) a byte-string object
+    :rtype: (bytes)
+    '''
+    if isinstance(file_or_bytes, str):
+        img = PIL.Image.open(file_or_bytes)
     else:
-        return
-    update_cartes(tapis,cartes,coordonnees,images_cartes,zoom,lot_de_cartes)
-    
-        
+        try:
+            img = PIL.Image.open(io.BytesIO(base64.b64decode(file_or_bytes)))
+        except Exception:
+            dataBytesIO = io.BytesIO(file_or_bytes)
+            img = PIL.Image.open(dataBytesIO)
 
-def window_organisateur(distributeur,partie):
-        email = distributeur.email_user
-        password = distributeur.email_password
+    cur_width, cur_height = img.size
+    if resize:
+        new_width, new_height = resize
+        scale = min(new_height/cur_height, new_width/cur_width)
+        img = img.resize((int(cur_width*scale), int(cur_height*scale)), PIL.Image.ANTIALIAS)
+    bio = io.BytesIO()
+    img.save(bio, format="PNG")
+    del img
+    return bio.getvalue()
+
+
+
+
+
+def connect_server(host,port,nom):
+    server_addr = (host, port)
+    print("starting connection to", server_addr)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setblocking(False)
+    sock.connect_ex(server_addr)
+    events = selectors.EVENT_READ | selectors.EVENT_WRITE
+    data = types.SimpleNamespace(inb="")
+    selector.register(sock, events,data=data)
+    return True
+
+
+
+
+def service_connection(key, mask,msg):
+    global state
+    global menu_def 
+    
+    sock = key.fileobj
+    data = key.data 
+    if mask & selectors.EVENT_READ:
+        try:
+            recv_data = sock.recv(1024)  # Should be ready to read
+            if recv_data:
+                data.inb += recv_data.decode()
+                if len(data.inb)>4 and data.inb[-4:]=="#EOM":
+                    print("{} bytes received from Server.".format(len(data.inb)))
+                    info = data.inb[:-4]
+                    data.inb=""
+                    return info     
+            else :
+               print("Fermeture de la connexion client.")
+               selector.unregister(sock)
+               sock.close()
+               state = 0 
+               menu_def = get_menu_layout(state)
+        except:
+            print("Connexion refusée")
+
+    if mask & selectors.EVENT_WRITE:
+         if msg["command"] != b"":
+             
+             # we just leave the server
+             if msg["command"] in [b"STOP#EOM"] :
+                  print("close the connexion")
+                  selector.unregister(sock)
+                  sock.close()
+
+                 
+             sent = sock.send(msg["command"])
+             print("sending {} bytes to server.".format(sent))
+             msg["command"] = msg["command"][sent:]
+             
+
+
+
+    # connexion_avec_serveur = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # try:
+    #     print(host,port)
+    #     connexion_avec_serveur.connect((host, port))
+    #     print("connexion établie avec le serveur sur le port {}".format(port))
+    #     connexion_avec_serveur.send(("NOMMER "+nom+"#EOM").encode())
+    #     return connexion_avec_serveur
+    # except:
+    #     print("Impossible de se connecter.") 
+        
+    
+
+
+
+
+def window_connexion():
         layout = [
-                 [sg.Text(text=
-"""Entrez votre email et votre mot de passe de messagerie Google.Le mot de passe ne sera pas sauvegardé et vous pourrez modifier ces informations plus tard""",size=(40,5)) ],
-                 [sg.Text('{:20}:'.format('email')),sg.Input(key='username',size=(20,1),default_text=email)],
-                 [sg.Text('{:15}:'.format('mot de passe')),sg.Input(key='password',password_char='*',size=(20,1),default_text=password)],
+                 [sg.Text(text="Entrez les informations de connexion",size=(30,1)) ],
+                 [sg.Text('{:15}:'.format('hôte'),size=(12,1)),sg.Input(key='__HOST__',size=(20,1),default_text="localhost")],
+                 [sg.Text('{:15}:'.format('port'),size=(12,1)),sg.Input(key='__PORT__',size=(20,1),default_text="12800")],
+                 [sg.Text('{:15}:'.format('Votre nom'),size=(12,1)),sg.Input(key='__NOM__',size=(20,1),default_text="")],
                  [sg.Button('Valider'),sg.Button('Annuler')]
                  ] 
-        window2 = sg.Window("messagerie de l'organisateur", layout,keep_on_top=True)
+        window2 = sg.Window("Connexion au serveur", layout,keep_on_top=True)
         event,values = window2.read()
-        if event == 'Valider':
-            distributeur.email_user = values['username']
-            distributeur.email_password = values['password']
         window2.close()
-
-def window_joueurs(distributeur,partie):
-        n = len(distributeur.noms)
-        noms = distributeur.noms+['']*(5-n)
-        emails = distributeur.emails+['']*(5-n)
-        
-        
-        layout2= [  
-                   [sg.Input(default_text=noms[i],size=(30,1),key='nom'+str(i),tooltip='Nom'),
-                     sg.Input(default_text=emails[i],size=(30,1),key='email'+str(i),tooltip='email')]
-                   for i in range(5)
-                ]  
-        layout2 =[[sg.Text(text="Entrez les noms emails des joueurs. Il faut minimum 3 joueurs. En modifiant ces informations, vous annulez le jeu en cours.",size=(50,2))]]+layout2+ [[sg.Button('Valider'),sg.Button('Annuler')]]
-        window2 = sg.Window('Noms et messagerie des joueurs', layout2,keep_on_top=True)
-        event,values = window2.read() 
-                #print(values2)
         if event == 'Valider':
+            host = values['__HOST__']
+            port = int(values['__PORT__'])
+            nom = values['__NOM__']
+            return host,port,nom
+        
+        
             
-            distributeur.noms=[]
-            distributeur.emails=[]
-            for i in range(5):
-                nom = values['nom'+str(i)].strip() 
-                email = values['email'+str(i)].strip()
-                if  nom  != '':
-                    distributeur.noms.append(nom)
-                    distributeur.emails.append(email)
-            # rassembler les cartes des joueurs
-            partie.rejouer()
-            # attribuer les nouveaux joueurs
-            partie.initialise_joueurs()
-            partie.etat=tr.CARTES_RASSEMBLEES
-        window2.close()
-
-
-
-
-
-
-def affiche_entames(window,partie):
-    for famille in ['pique','carreau','coeur','trefle']:
-        if partie.entames[famille]:
-            window['INFOS_'+famille].update(famille)
-        else:
-            window['INFOS_'+famille].update('')
-    if partie.entames['atout']>0:
-        window['INFOS_atout'].update(str(partie.entames['atout']))
-    else:
-        window['INFOS_atout'].update('')
-           
-    
-
-
-# fenetre principale
-window = sg.Window('Tarot Confiné', layout,return_keyboard_events=True,resizable=True)
-window.read(timeout=100)      
-"""
-chargement des cartes
-"""            
-images_cartes = load_images_cartes()            
-#window.Disable() 
-window_organisateur(distributeur,partie)
-window_joueurs(distributeur,partie)
-#window.Enable()
-zoom = 1
-# Event Loop to process "events"
-window['tapis'].expand(expand_x=True,expand_y=True)
-window.read(timeout=100)
-
-while True:             
-    event, values = window.read(timeout=100)
-    if event and len(event)==1 and event != '\r':
-        continue 
-    if event in (None, 'quitter'):
-        break
-    window['tapis'].expand(expand_x=True,expand_y=True)
-    update(window['tapis'],partie,images_cartes,zoom)
-    if event in ('zoom'):
-        zoom = float(values['zoom'])/100     
-       
-    elif event in ('aide rapide','licence','à propos','voir le jeu du prochain joueur'):  
-        window_active=False
-        size=(68,48)
-        texte = ''
-        if event=='licence':
-            file = open("./LICENSE", "r")
-            texte=file.read()
-            file.close()
-        elif event=='aide rapide':
-            file = open("./README.md","r",encoding='utf8')
-            texte=file.read()
-            file.close()
-        elif event=='à propos':
-               
-            texte = """\n TAROT CONFINE \n \n Martin MORITZ - 2020 \n https://github.com/mapariel/tarot_confine \n\n Bon jeu !"""
-   
-            size=(50,8)
-        elif event == 'voir le jeu du prochain joueur':
-             texte = partie.affiche(joueur_index=partie.joueur_index)
-             size=(50,8)
-        sg.popup_scrolled(texte,title=event,size=size)
-        window.active=True
-        continue
-    
-    elif event == 'modifier les joueurs':
-        #window.Disable()
-        window_joueurs(distributeur,partie)
-        #window.Enable()
-        continue
-    elif event == "modifier l'organisateur":
-        #window.Disable()
-        window_organisateur(distributeur,partie)
-        #window.Enable()
-        continue
+def window_demarrer_serveur():
+    number_of_players = 3
+    variante = ta.Tarot.SANS 
+    layout = [
+        [sg.Text(text="Entrez les informations sur la partie et sur le serveur",size=(30,1))],
+        [sg.Text('{:15}:'.format('port'),size=(12,1)),sg.Input(key='__PORT__',size=(20,1),default_text="12800")],
         
-    
-    elif event in ('annuler la partie'):
-         partie.etat = tr.PARTIE_TERMINEE
-         message = partie.get_message()
-         window['-OUTPUT-'].print(message)
-         continue 
-    elif event in ('annuler le coup'):
-        partie.annuler_coup()
+        [sg.Text('{:15}:'.format('Votre nom'),size=(12,1)),sg.Input(key='__NOM__',size=(20,1))],  
+        [sg.Radio("trois",1,key="__TROIS__"),sg.Radio("quatre",1,key="__QUATRE__"),sg.Radio("cinq (appel au roi)",1,key="__APPEL__")
+                  ,sg.Radio("cinq (avec un mort)",1,key="__MORT__")],
+
+        [sg.Radio("Jeu à plusieurs",2,default=True,key="__PLUSIEURS__"),sg.Radio("Jouer tout seul",2,key="__SEUL__")],
         
-    if event in ('Ok','\r'):
-        entry_input =  values['-INPUT-']
-        if entry_input!='' : window['-OUTPUT-'].print("{:>50}".format(entry_input))
-        window['-INPUT-'].update('')
-        message,cartes = partie.action(entry_input)
-        if len(cartes)>0 or partie.etat==tr.PRET :
-            window['-OUTPUT-'].print(' '.join(cartes))
-        #affiche_entames(window,partie)
-        window['-OUTPUT-'].print(message)
-        message = partie.get_message()
-        window['-OUTPUT-'].print(message)
-        affiche_entames(window,partie)
-        if partie.etat == tr.AFFICHAGE_SCORE:
-            if animation == ANIM_NOT:
-                animation = ANIM_START
+        [sg.Button('Valider'),sg.Button('Annuler')],
+        ]
+    window2 = sg.Window("Démarrer le serveur", layout,keep_on_top=True)
+    event,values = window2.read()
+    window2.close()
+    
+    if event == 'Valider':
+            if values["__QUATRE__"]:
+                number_of_players = 4
+            elif values["__APPEL__"]:
+                number_of_players = 5
+                variante = ta.Tarot.APPEL_AU_ROI
+            elif values["__MORT__"]:    
+                number_of_players = 5
+                variante = ta.Tarot.MORT
+            test=False
+            if values["__SEUL__"]:
+                test = True        
+            partie = ta.Tarot(number_of_players,variante)
+            port = int(values['__PORT__'])
+            nom = values['__NOM__']
+            threaded_server = threading.Thread(target=sv.serve, args=(partie,test,port,), daemon=True)
+            threaded_server.start()
+            
+            return '',port,nom
+    window2.close()
+    
+            
+
+
+
+
+
+
+class Jeu():
+    def __init__(self,window,message=""):
+        self.infos = {}
+        self.infos["choix"] = []
+        self.window = window 
+        # load the cards
+        if message :
+            xml = dom.parseString(message)
+            
+            if xml.getElementsByTagName("infos")[0].hasAttribute("joueur"):
+                self.infos["my_index"] = int(xml.getElementsByTagName("infos")[0].getAttribute("joueur"))
+            else :
+                self.infos["my_index"] = 0
+            # index of this player in the game
+            
+            # fetches the name of the players
+            n_joueurs = len(xml.getElementsByTagName("joueur"))
+            self.infos["noms"] = ['']*n_joueurs                            
+            for nom in xml.getElementsByTagName("joueur"):
+                index = int(nom.getAttribute("index"))
+                self.infos["noms"][index] = nom.lastChild.data
+            
+            for child in xml.getElementsByTagName("cartes"):
+                place = child.getAttribute("place")
+                cartes = child.lastChild.data
+                cartes = cartes.split(',')
+                self.infos[place] = cartes
+            for choix in xml.getElementsByTagName("choix"):
+                c = choix.getAttribute("commande")
+                t = choix.lastChild.data
+                self.infos["choix"].append((c,t))
+                                                 
+            if len(xml.getElementsByTagName("message"))==1:
+                self.infos["message"] = xml.getElementsByTagName("message")[0].lastChild.data
+            if len(xml.getElementsByTagName("result"))==1:
+                self.infos["result"] = xml.getElementsByTagName("result")[0].lastChild.data
+            if len(xml.getElementsByTagName("index_entame"))==1:
+                self.infos["index_entame"] = int(xml.getElementsByTagName("index_entame")[0].lastChild.data)
+            if len(xml.getElementsByTagName("index_joueur"))==1:
+                self.infos["index_joueur"] = int(xml.getElementsByTagName("index_joueur")[0].lastChild.data)
+            if len(xml.getElementsByTagName("index_preneur"))==1:
+                self.infos["index_preneur"] = int(xml.getElementsByTagName("index_preneur")[0].lastChild.data)
+            # the second attaquant in case of variante appel au roi
+            if len(xml.getElementsByTagName("index_attaquant"))==1:
+                self.infos["index_attaquant"] = int(xml.getElementsByTagName("index_attaquant")[0].lastChild.data)
+            if len(xml.getElementsByTagName("index_mort"))==1:
+                self.infos["index_mort"] = int(xml.getElementsByTagName("index_mort")[0].lastChild.data)
+
+
+
+
         else :
-            animation = ANIM_NOT
-          
-       
+            self.infos["message"] = "Vous pouvez joindre un jeu."
+            # self.infos["main"] = ['1','2','3','4','2tr']
+            #self.infos["pli"] =['rtr','3tr','_','_']
+            self.infos["ecart"] =['1','21','e']
+            self.infos["noms"]=[]
+            # self.infos["my_index"]=2
+            # self.infos["index_entame"]=0
+            # self.infos["index_joueur"]=2
+            # self.infos["index_preneur"]=3
+            # self.infos["choix"]=[("JOUER","joueur la carte"),("ANNULER","annuler le coup")]
+            # self.infos["levee"] = ['1','2','3','4','2tr','5tr','rtr','4pi','5pi','5','6','cco','e',
+            #                      '1','2','3','4','2tr','5tr','rtr','4pi','5pi','5','6','cco','e']
+        self.pointable_items = {}  # {1:'rpi',4:'2tr'} keys are items of cards in main 
+        self.selected_abr = []    # ['rpi','2tr'] abreviations of the selected cards
+    
+    
+    def get_baseline(self,ratio=1):
+        """
+        Where (vertically) to put the cards that are not selected
 
-window.close()
+        Returns
+        -------
+        baseline : int
+            y-coordinates of the cards in main.
+        offset : int
+            how much to push the selected cards.
+
+        """
+        baseline = HEIGHT-(H_CARTE+10)  # y-coordinate of the cards in main
+        offset = -50
+        return baseline*ratio,offset*ratio
+    
+
+    def align_main(self,ratio=1):
+            """
+            Put the cards of main on the correct y-coordinate (+offset when selected)
+
+            Returns
+            -------
+            None.
+
+            """
+            for i,a in self.pointable_items.items():
+                x,y = self.window['__TAPIS__'].GetBoundingBox(i)[0]
+                y,offset = self.get_baseline(ratio)
+                if a in self.selected_abr:
+                    y = y+offset
+                self.window['__TAPIS__'].RelocateFigure(i,x,y)
+
+
+    def draw_canvas(self,ratio=1): 
+        
+        baseline,offset =  self.get_baseline()
+        self.pointable_items = {} 
+        self.window['__TAPIS__'].Erase()      
+        # draw the main
+        if "main" in self.infos:
+            # there are n cards, k of it is visible, the rest covered by the following
+            n = len(self.infos["main"])
+            k = (WIDTH-50-W_CARTE)/((12)*W_CARTE)
+            hspace = (WIDTH-W_CARTE-(n-1)*k*W_CARTE)/2
+            if n>=13 :
+                k = (WIDTH-50-W_CARTE)/((n-1)*W_CARTE)
+                hspace = 25  # gap on the left and on the right
+            
+            for i,abr in enumerate(self.infos["main"]):
+                a = self.window['__TAPIS__'].DrawImage(
+                data=convert_to_bytes('cartes/'+abr+'.png',resize=(W_CARTE*ratio,H_CARTE*ratio)),
+                location=(hspace+i*W_CARTE*k,baseline))
+                self.pointable_items[a]=abr
+        if "chien" in self.infos:
+            n = len(self.infos['chien'])
+            k = 1.1
+            hspace = (WIDTH-W_CARTE-(n-1)*k*W_CARTE)/2
+            for i,abr in enumerate(self.infos['chien']):
+                x,y = hspace+i*W_CARTE*k,HEIGHT/2-H_CARTE
+                self.window['__TAPIS__'].DrawImage(
+                        data=convert_to_bytes('cartes/'+abr+'.png',resize=(W_CARTE*ratio,H_CARTE*ratio)),
+                        location=(x,y))
+                
+                
+        if "ecart" in self.infos:
+            n = len(self.infos['ecart'])
+            k = 1.1
+            hspace = (WIDTH-W_CARTE-(n-1)*k*W_CARTE)/2
+            for i,abr in enumerate(self.infos['ecart']):
+                x,y = hspace+i*W_CARTE*k,HEIGHT/2-H_CARTE
+                self.window['__TAPIS__'].DrawImage(
+                        data=convert_to_bytes('cartes/'+abr+'.png',resize=(W_CARTE*ratio,H_CARTE*ratio)),
+                        location=(x,y))
+
+
+
+        if "pli" in self.infos:
+            angle0 = (self.infos["my_index"]+1)*2*math.pi/len(self.infos["noms"])
+            # angle to have this player always playing South (subjective view) 
+
+            n = len(self.infos['pli'])
+            # draw the pli
+            for i,abr in enumerate(self.infos['pli']):
+                angle = angle0-i*2*math.pi/n
+                x,y = 600+240*math.cos(angle), 300+230*math.sin(angle)
+                self.window['__TAPIS__'].DrawText(self.infos["noms"][i],(x,y),font='Courier 14')
+                
+                if abr != '_':
+                    x,y = 600-W_CARTE/2+120*math.cos(angle), 300-H_CARTE/2+80*math.sin(angle)
+                    self.window['__TAPIS__'].DrawImage(
+                        data=convert_to_bytes('cartes/'+abr+'.png',resize=(W_CARTE*ratio,H_CARTE*ratio)),
+                        location=(x,y))
+                 
+            angle = angle0-self.infos["index_entame"]*2*math.pi/n    
+            x,y = 600+240*math.cos(angle), 300+230*math.sin(angle)+20
+            self.window['__TAPIS__'].DrawImage(
+                        data=convert_to_bytes('cartes/chevron1.png',resize=(20*ratio,20*ratio)),
+                        location=(x,y))   
+            angle = angle0-self.infos["index_joueur"]*2*math.pi/n    
+            x,y = 600+240*math.cos(angle), 300+230*math.sin(angle)+20
+            self.window['__TAPIS__'].DrawImage(
+                        data=convert_to_bytes('cartes/chevron2.png',resize=(20*ratio,20*ratio)),
+                        location=(x,y))    
+            angle = angle0-self.infos["index_preneur"]*2*math.pi/n    
+            x,y = 600+240*math.cos(angle), 300+230*math.sin(angle)-50
+            self.window['__TAPIS__'].DrawImage(
+                        data=convert_to_bytes('cartes/couronne1.png',resize=(30*ratio,30*ratio)),
+                        location=(x,y))    
+            if  "index_attaquant" in self.infos:
+                angle = angle0-self.infos["index_attaquant"]*2*math.pi/n    
+                x,y = 600+240*math.cos(angle), 300+230*math.sin(angle)-50
+                self.window['__TAPIS__'].DrawImage(
+                        data=convert_to_bytes('cartes/couronne2.png',resize=(30*ratio,30*ratio)),
+                        location=(x,y))    
+            if  "index_mort" in self.infos:
+                angle = angle0-self.infos["index_mort"]*2*math.pi/n    
+                x,y = 600+240*math.cos(angle), 300+230*math.sin(angle)-50
+                self.window['__TAPIS__'].DrawImage(
+                        data=convert_to_bytes('cartes/mort.png',resize=(30*ratio,30*ratio)),
+                        location=(x,y))    
+
+
+                
+
+
+            
+            
+        if "levee" in self.infos:
+             n = len(self.infos['levee'])
+             n_cols = (n//2)//10+1
+             hspace = (WIDTH-n_cols*W_CARTE*2-(n_cols-1)*W_CARTE*0.1)/2
+             for col in range(n_cols):
+                 x = hspace+W_CARTE*col*1.1*2
+                 for j in range(10):
+                         y = H_CARTE*j*0.4
+                         index = 2*(10*col+j)
+                         try:
+                             abr = self.infos['levee'][index]
+                             self.window['__TAPIS__'].DrawImage(
+                                data=convert_to_bytes('cartes/'+abr+'.png',resize=(W_CARTE*ratio,H_CARTE*ratio)),
+                                location=(x,y))
+                             abr = self.infos['levee'][index+1]
+                             self.window['__TAPIS__'].DrawImage(
+                                data=convert_to_bytes('cartes/'+abr+'.png',resize=(W_CARTE*ratio,H_CARTE*ratio)),
+                                location=(x+W_CARTE,y))
+                         except:
+                              pass
+                     
+             
+            
+            
+
+    def draw(self):
+        self.draw_canvas()            
+        # update the choices
+        for i in range(6):
+            self.window["BOUTON"+str(i)].update(visible=False,button_color=("black","yellow"))
+        for i,choi in enumerate(self.infos['choix']):
+            txt_choix = self.infos['choix'][i][1]
+            for j,nom in enumerate(self.infos["noms"]):
+                txt_choix.replace("Joueur{}".format(j), nom)
+            self.window["BOUTON"+str(i)].update(text=txt_choix,visible=True)
+            if i==0 :
+                self.window["BOUTON"+str(i)].SetFocus()
+        self.align_main()  
+        message = ""
+        if "result" in self.infos: message = message+self.infos["result"]+'\n'         
+        if "message" in self.infos: message = message+self.infos["message"] 
+        
+        # put the names of the players
+        for i,nom in enumerate(self.infos["noms"]):
+            message = message.replace("Joueur{}".format(i), nom)
+        
+        self.window["__MESSAGE__"].update(message)
+
+
+
+
+def get_layout():
+    boutons =[[sg.InputText(key="__NOM__",size=(20,1)),sg.OK()]]+ [[sg.Text("",size=(30,5),auto_size_text=True,key="__MESSAGE__")]] +[[
+        sg.Button(button_text="BOUTON"+str(0),key="BOUTON"+str(0),size=(40,10),visible=False,bind_return_key=True)]]+ [[
+        sg.Button(button_text="BOUTON"+str(i),key="BOUTON"+str(i),size=(40,10),visible=False)] 
+        for i in range(1,6) ]  
+    colonne = sg.Column(boutons,key="__COLONNE__",size=(300,100)) 
+    layout = [  [sg.Menu([],key="__MENU__"),],
+               [sg.Graph((WIDTH,HEIGHT),(0,HEIGHT),(WIDTH,0)
+              ,background_color='green',key='__TAPIS__'
+              ,float_values=True,enable_events=True,drag_submits=False),colonne ]]
+
+    return layout    
+
+
+def get_menu_layout(state):
+    menu_def = []
+    if state == 0 :
+        menu_def = [ ['&Serveur',
+                          ['&Joindre une partie::JOINDRE',
+                           '!&Quitter la partie::STOP',
+                           '&Créer une partie::CREER'
+                           ,'!&Supprimer la partie::SUPPRIMER']
+                          ],
+                    ]
+    elif state == 1 :
+        menu_def = [ ['&Serveur',
+                          ['&!Joindre une partie::JOINDRE',
+                           '!&Quitter la partie::STOP',
+                           '!&Créer une partie::CREER',
+                           '&Supprimer la partie::SUPPRIMER']
+                          ],
+                    ]
+    elif state == 2 :
+        menu_def = [ ['&Serveur',
+                          ['&!Joindre une partie::JOINDRE',
+                           '&Quitter la partie::STOP',
+                           '&!Créer une partie::CREER'
+                           ,'&!Supprimer la partie::SUPPRIMER']
+                          ],
+                    ]
+    return menu_def
+
+
+         
+if __name__ == '__main__':
+               
+    """                
+    """
+    host = ""
+    port = None
+    nom = ""  # name of this player
+    connexion_avec_serveur = None # connection to the server
+    
+    """
+    """
+    state = 0 # not connected # 1: game created # 2 : game joined
+    
+    
+    layout = get_layout()
+    menu_def = get_menu_layout(state)
+    
+    
+    window = sg.Window('Tarot en Ligne',layout,return_keyboard_events=True
+                       ,resizable=True,no_titlebar=False
+                       ,use_default_focus=False,finalize=True)
+  
+    window["__MENU__"].update(menu_def)
+    window['__COLONNE__'].expand(expand_y=True)
+    window['__TAPIS__'].expand(expand_x=True,expand_y=True)
+    window['__TAPIS__'].bind("<Motion>",'MOTION')
+    window['__TAPIS__'].bind("<Double-Button-1>",'DOUBLE')
+    
+    canvas = window['__TAPIS__'].TKCanvas 
+    
+    
+    jeu =Jeu(window)
+    jeu.draw()
+    ratio = 1  #, zoom in if ratio>1, zoom out if <1
+    
+    
+    
+    
+    while True:
+
+        if selector.get_map():
+            socket_events = selector.select(timeout=-1)
+            if socket_events:
+                for key, mask in socket_events:
+                    msg["infos"] = service_connection(key, mask,msg)
+                    if msg["infos"]:
+                        jeu =Jeu(window,msg["infos"])  
+                        jeu.draw()
+        else : 
+            jeu = Jeu(window)
+            jeu.draw()
+        window.Refresh()    
+     
+        event,values = window.read(timeout=10)
+        if True :
+            #if event != "__TIMEOUT__" : print(event)
+            if event in (None, 'QUITTER'):
+                selector.close()
+                break
+            
+            # management of the connection with the server 
+            if "JOINDRE" in event:
+                host,port,nom =  window_connexion()
+                connexion_avec_serveur = connect_server(host,port,nom)
+                state = 2
+                menu_def  = get_menu_layout(state)
+                window['__NOM__'].update(value=nom)
+                window['__MENU__'].update(menu_def)
+                sg.popup("{} vous venez de rejoindre la partie sur le port {} de l'hôte {}.".format(nom,port,host))
+                msg["command"] = ("NOMMER {}#EOM".format(nom)).encode()
+            
+            elif "SUPPRIMER" in event :
+                msg["command"] = 'FIN#EOM'.encode()
+                state = 0
+                menu_def  = get_menu_layout(state)
+                window['__MENU__'].update(menu_def)
+                sg.popup('La partie est supprimée.')
+    
+            
+            elif "STOP" in event :
+                msg["command"] = 'STOP#EOM'.encode()
+                state = 0
+                menu_def  = get_menu_layout(state)
+                window['__MENU__'].update(menu_def)
+    
+                
+            elif "CREER" in event:
+                rep = window_demarrer_serveur()
+                if rep :
+                    host,port,nom  = rep                
+                    connexion_avec_serveur = connect_server('localhost',port,nom)
+                    state = 1
+                    menu_def  = get_menu_layout(state)
+                    window['__MENU__'].update(menu_def)
+                    window['__NOM__'].update(value=nom)
+                    sg.popup('{}, vous venez de créer une partie'.format(nom),'Demandez aux autres joueurs de vous rejoindre.',
+                             "Le port est {} et l'hôte est votre adresse IP".format(port))
+                    msg["command"] = ("NOMMER {}#EOM".format(nom)).encode()
+    
+            if event=="OK":
+                nom = window["__NOM__"].get()
+                if selector.get_map():
+                    msg["command"] = ("NOMMER {}#EOM".format(nom)).encode()
+                
+       
+            if "BOUTON" in event :
+                window[event].update(button_color=("red","green"))
+                # get the aaction corresponding to the button pressed
+                action = jeu.infos['choix'][int(event[-1])][0]
+                cartes = jeu.selected_abr
+                if len(cartes)==0:
+                    msg_temp = action+"#EOM" 
+                    # action always finishes with #EOM
+                else : msg_temp = action+" "+",".join(cartes)+"#EOM"
+                
+                if connexion_avec_serveur :
+                    msg["command"] = msg_temp.encode()
+                    #connexion_avec_serveur.send(msg.encode())
+                
+                
+            elif event == '+':
+                ratio = ratio*1.1
+                jeu.draw_canvas(ratio)
+                canvas.scale("all",0,0,ratio,ratio)
+                jeu.align_main(ratio)   
+            elif event == '-':
+                ratio = ratio/1.1
+                jeu.draw_canvas(ratio)
+                canvas.scale("all",0,0,ratio,ratio)
+                jeu.align_main(ratio)   
+        
+                
+            elif event in ["__TAPIS__MOTION"]:
+                jeu.align_main(ratio)
+                carte = canvas.find_withtag("current")
+                
+                if len(carte) != 0 : 
+                    i = carte[0]  # item
+                    if i in jeu.pointable_items: # the card belongs to main
+                        a = jeu.pointable_items[i]          # abreviation
+                        x,y = window['__TAPIS__'].GetBoundingBox(i)[0]
+                        _,offset = jeu.get_baseline(ratio)
+                        if a not in jeu.selected_abr:    
+                            y = y+offset
+                            window['__TAPIS__'].RelocateFigure(i,x,y) 
+            elif event in ["__TAPIS__DOUBLE"]:
+                carte = canvas.find_withtag("current")
+                if len(carte) != 0 : 
+                    window['BOUTON0'].Click()
+                         
+            elif event in ["__TAPIS__"]:
+                carte = canvas.find_withtag("current")
+                if len(carte) != 0 :
+                    i = carte[0]
+                    if i in jeu.pointable_items: # the card belongs to main
+                        a = jeu.pointable_items[i]
+                        if a in jeu.selected_abr:
+                            jeu.selected_abr.remove(a)
+                        else:
+                            jeu.selected_abr.append(a)
+                    jeu.align_main(ratio)        
+    
+    
+                
+                        
+                    
+            
+        #elif not event in ["__TIMEOUT__",'+']: print(event,values)
+            
+    
+    
+    
