@@ -1,41 +1,22 @@
 # Tarot confiné
-Pour jouer au tarot, comme en vrai, avec ses amis et en visionconférence.
-Pour windows, vous pouvez télécharger l'exécutable http://gofile.me/48Z1V/AJFchqo2V
+Pour jouer au tarot, comme en vrai, avec ses amis en réseau.
+On peut jouer à 3, 4 ou à 5, avec appel du roi ou avec un mort.
 
 ## Aspect technique
 Le code est testé avec Python 3.7.7, on a besoin des modules pysimplegui, pillow et numpy.
 
 ## Préparation de la partie
 
-Dans le menu Partie->modifier l'organisateur, indiquez votre adresse de courriel 
-et le mot de passe de votre messagerie. La connexion se fait en SMTP. 
-Pour un compte Google il faut activer les connexions moins sécurisées.
+- Dans le menu Serveur, on peut soit créer une partie, soit joindre une partie existante.
+Quand on crée une partie, on peut choisir le port (12800 par défaut). Si on souhaite jouer sur internet, il faut connaître son IP externe, activer la redirection de ports sur son routeur et éventuellement déactiver le pare feu sur le port utilisé.
+Si on veut simplement tester le soft, on peut demander de joueur tout seul.
 
-Dans le menu, allez dans Partie->modifier les joueurs. Indiquez le noms des joueurs et 
-l'adresse de courriel auxquelles ils souhaitent recevoir leur jeux.
+- Quand on joint une partie, il faut indiquer l'adresse du serveur et le port (donnés par celui qui a créé la partie).
 
-On peut jouer à trois, quatre ou cinq (avec un *mort*). Chaque joueur a une main de 18 cartes (24 à trois) et il y a 6 cartes au chien. Pas de garde sans ni contre le chien non plus. Patience, ça viendra.
+Dans les deux cas, il faut indiquer son nom, que les autres joueurs verront, on peut modifier ce nom en cours de partie.
 
 ## La partie
 
-Ensuite le jeu démarre. Pour chaque distribution, les joueurs reçoivent leur main de cartes pas courriel.
-
-Le jeu se fait par visioconférence, choisissez celle de votre choix, partagez votre écran avec les joueurs.
-
-Ensuite, on joue normalement. Le preneur fait son écart, puis chacun indique la carte qu'il veut joueur. C'est l'organisateur qui saisit la carte jouée tour à tour par chacun des joueurs. Les abréviations sont par exemple : *1* pour le petit, *5* pour le 5 d'atout, *e* pour l'excuse, *5tr* pour le 5 de trèfle, *rpi* pour le roi de pique ...
-
-Sur l'écran, tout le monde peut voir la partie se dérouler.
-
-Respectez les règles du tarot en jouant, le jeu ne vérifie pas. Pas de "je coupe et j'en rejoue".
-
-À la fin, le jeu compte les points du preneur et propose de jouer une nouvelle partie.
-
-## Quelques commandes des menus :
-Jeu-> annuler la partie : arrêter une partie en cours de jeu
-
-Jeu->annuler le coup : annuler la carte posée par le joueur. La carte revient dans son jeu et il doit en joueur une autre
-
-Joeur->voir le jeu du porchain joueur  : Pour voir les cartes restantes du joueur. En fin de partie, il arrive qu'à la suite d'erreur, un joueur ne sache plus bien quelle(s) carte(s) il a en main...
-
+Ensuite le jeu démarre. Chaque joueur se voit proposer une ou des actions possibles quand c'est son tour.
 
 Bon jeu !
