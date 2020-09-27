@@ -18,5 +18,6 @@ Dans les deux cas, il faut indiquer son nom, que les autres joueurs verront, on 
 ## La partie
 
 Ensuite le jeu démarre. Chaque joueur se voit proposer une ou des actions possibles quand c'est son tour.
+Pendant le jeu, des icônes désigne qui à qui est le tour de jouer, qui a entamé, qui a pris. Ainsi éventuellement qui est le mort ou bien qui a joué le roi qui a été appelé.
 
 Bon jeu !
