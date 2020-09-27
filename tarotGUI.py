@@ -486,24 +486,27 @@ def get_menu_layout(state):
                           ['&Joindre une partie::JOINDRE',
                            '!&Quitter la partie::STOP',
                            '&Créer une partie::CREER'
-                           ,'!&Supprimer la partie::SUPPRIMER']
+                           ,'!&Supprimer la partie::SUPPRIMER'],
                           ],
+                        ['&Aide',['&aide rapide','&licence','à &propos'] ]
                     ]
     elif state == 1 :
         menu_def = [ ['&Serveur',
                           ['&!Joindre une partie::JOINDRE',
                            '!&Quitter la partie::STOP',
                            '!&Créer une partie::CREER',
-                           '&Supprimer la partie::SUPPRIMER']
+                           '&Supprimer la partie::SUPPRIMER'],
                           ],
+                    ['&Aide',['&aide rapide','&licence','à &propos']]
                     ]
     elif state == 2 :
         menu_def = [ ['&Serveur',
                           ['&!Joindre une partie::JOINDRE',
                            '&Quitter la partie::STOP',
                            '&!Créer une partie::CREER'
-                           ,'&!Supprimer la partie::SUPPRIMER']
+                           ,'&!Supprimer la partie::SUPPRIMER'],
                           ],
+                     ['&Aide',['&aide rapide','&licence','à &propos']]
                     ]
     return menu_def
 
@@ -607,6 +610,30 @@ if __name__ == '__main__':
                     sg.popup('{}, vous venez de créer une partie'.format(nom),'Demandez aux autres joueurs de vous rejoindre.',
                              "Le port est {} et l'hôte est votre adresse IP".format(port))
                     msg["command"] = ("NOMMER {}#EOM".format(nom)).encode()
+            elif event in ('aide rapide','licence','à propos','voir le jeu du prochain joueur'):  
+                size=(68,48)
+                texte = ''
+                if event=='licence':
+                    file = open("./LICENSE", "r")
+                    texte=file.read()
+                    file.close()
+                elif event=='aide rapide':
+                    file = open("./README.md","r",encoding='utf8')
+                    texte=file.read()
+                    file.close()
+                elif event=='à propos':
+                       
+                    texte = """\n TAROT CONFINE \n \n Martin MORITZ - 2020 \n https://github.com/mapariel/tarot_confine \n\n Bon jeu !"""
+           
+                    size=(50,8)
+                elif event == 'voir le jeu du prochain joueur':
+                     texte = partie.affiche(joueur_index=partie.joueur_index)
+                     size=(50,8)
+                sg.popup_scrolled(texte,title=event,size=size)
+                window.active=True
+                continue
+
+    
     
             if event=="OK":
                 nom = window["__NOM__"].get()
