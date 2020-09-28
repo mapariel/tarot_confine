@@ -30,9 +30,9 @@ import xml.dom.minidom as dom
 
 sg.theme('DarkAmber')
 WIDTH = 1200
-HEIGHT = 900
-W_CARTE = 120
-H_CARTE = 214
+HEIGHT = 780
+W_CARTE = 96
+H_CARTE = 171
 
 
 selector = selectors.DefaultSelector()
@@ -136,17 +136,6 @@ def service_connection(key, mask,msg):
              
 
 
-
-    # connexion_avec_serveur = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # try:
-    #     print(host,port)
-    #     connexion_avec_serveur.connect((host, port))
-    #     print("connexion établie avec le serveur sur le port {}".format(port))
-    #     connexion_avec_serveur.send(("NOMMER "+nom+"#EOM").encode())
-    #     return connexion_avec_serveur
-    # except:
-    #     print("Impossible de se connecter.") 
-        
     
 
 
@@ -467,10 +456,10 @@ class Jeu():
 
 def get_layout():
     boutons =[[sg.InputText(key="__NOM__",size=(20,1)),sg.OK()]]+ [[sg.Text("",size=(30,5),auto_size_text=True,key="__MESSAGE__")]] +[[
-        sg.Button(button_text="BOUTON"+str(0),key="BOUTON"+str(0),size=(40,10),visible=False,bind_return_key=True)]]+ [[
-        sg.Button(button_text="BOUTON"+str(i),key="BOUTON"+str(i),size=(40,10),visible=False)] 
+        sg.Button(button_text="BOUTON"+str(0),key="BOUTON"+str(0),size=(40,2),visible=False,bind_return_key=True)]]+ [[
+        sg.Button(button_text="BOUTON"+str(i),key="BOUTON"+str(i),size=(40,2),visible=False)] 
         for i in range(1,6) ]  
-    colonne = sg.Column(boutons,key="__COLONNE__",size=(300,100)) 
+    colonne = sg.Column(boutons,key="__COLONNE__") 
     layout = [  [sg.Menu([],key="__MENU__"),],
                [sg.Graph((WIDTH,HEIGHT),(0,HEIGHT),(WIDTH,0)
               ,background_color='green',key='__TAPIS__'
@@ -488,6 +477,7 @@ def get_menu_layout(state):
                            '&Créer une partie::CREER'
                            ,'!&Supprimer la partie::SUPPRIMER'],
                           ],
+                        ['&Tailles de cartes',['&Augmenter(+)::PLUS_GRAND','&Diminuer(-)::PLUS_PETIT']],
                         ['&Aide',['&aide rapide','&licence','à &propos'] ]
                     ]
     elif state == 1 :
@@ -509,6 +499,19 @@ def get_menu_layout(state):
                      ['&Aide',['&aide rapide','&licence','à &propos']]
                     ]
     return menu_def
+
+
+def rescale():
+    # draws the game with the correct ratio
+    # thos must be called immediately after jeu.draw has been called
+    global jeu
+    global ratio
+    global canvas 
+    jeu.draw_canvas(ratio)
+    canvas.scale("all",0,0,ratio,ratio)
+    jeu.align_main(ratio) 
+    canvas.config(width=WIDTH*ratio, height=HEIGHT*ratio)
+
 
 
          
@@ -560,14 +563,18 @@ if __name__ == '__main__':
                     if msg["infos"]:
                         jeu =Jeu(window,msg["infos"])  
                         jeu.draw()
+                        rescale()
+
         else : 
             jeu = Jeu(window)
             jeu.draw()
+            rescale()
+
         window.Refresh()    
      
         event,values = window.read(timeout=10)
         if True :
-            #if event != "__TIMEOUT__" : print(event)
+            # if event != "__TIMEOUT__" : print(event,values)
             if event in (None, 'QUITTER'):
                 selector.close()
                 break
@@ -626,9 +633,6 @@ if __name__ == '__main__':
                     texte = """\n TAROT CONFINE \n \n Martin MORITZ - 2020 \n https://github.com/mapariel/tarot_confine \n\n Bon jeu !"""
            
                     size=(50,8)
-                elif event == 'voir le jeu du prochain joueur':
-                     texte = partie.affiche(joueur_index=partie.joueur_index)
-                     size=(50,8)
                 sg.popup_scrolled(texte,title=event,size=size)
                 window.active=True
                 continue
@@ -656,17 +660,12 @@ if __name__ == '__main__':
                     #connexion_avec_serveur.send(msg.encode())
                 
                 
-            elif event == '+':
+            elif event == '+' or 'PLUS_GRAND' in event:
                 ratio = ratio*1.1
-                jeu.draw_canvas(ratio)
-                canvas.scale("all",0,0,ratio,ratio)
-                jeu.align_main(ratio)   
-            elif event == '-':
+                rescale()
+            elif event == '-' or 'PLUS_PETIT' in event:
                 ratio = ratio/1.1
-                jeu.draw_canvas(ratio)
-                canvas.scale("all",0,0,ratio,ratio)
-                jeu.align_main(ratio)   
-        
+                rescale()
                 
             elif event in ["__TAPIS__MOTION"]:
                 jeu.align_main(ratio)
