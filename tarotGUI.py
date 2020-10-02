@@ -128,6 +128,7 @@ def service_connection(key, mask,msg):
                   print("close the connexion")
                   selector.unregister(sock)
                   sock.close()
+                  return
 
                  
              sent = sock.send(msg["command"])
@@ -487,6 +488,7 @@ def get_menu_layout(state):
                            '!&Créer une partie::CREER',
                            '&Supprimer la partie::SUPPRIMER'],
                           ],
+                    ['&Tailles de cartes',['&Augmenter(+)::PLUS_GRAND','&Diminuer(-)::PLUS_PETIT']],
                     ['&Aide',['&aide rapide','&licence','à &propos']]
                     ]
     elif state == 2 :
@@ -496,6 +498,7 @@ def get_menu_layout(state):
                            '&!Créer une partie::CREER'
                            ,'&!Supprimer la partie::SUPPRIMER'],
                           ],
+                      ['&Tailles de cartes',['&Augmenter(+)::PLUS_GRAND','&Diminuer(-)::PLUS_PETIT']],
                      ['&Aide',['&aide rapide','&licence','à &propos']]
                     ]
     return menu_def

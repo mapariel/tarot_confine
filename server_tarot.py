@@ -14,7 +14,6 @@ import time
 
 
 
-
 def cards_as_string(cartes,triees=False):
         """
         affiche les abbréviations des cartes, éventuellement triées 
@@ -117,9 +116,11 @@ class Server():
                     commands.append((command,data.index))
             else:
                 print("closing connection to Joueur{}".format(data.index))
+                commands.append(("CONNECTION_CLIENT_CLOSED",data.index))
                 self.free_connections.append(data.index)
                 self.selector.unregister(sock)
                 sock.close()
+                return 
         if mask & selectors.EVENT_WRITE:
             # print("server is trying to write(124)")
             # print(infos[data.index],data.index)
@@ -163,11 +164,13 @@ class Server():
         
         n_joueurs_attendus = len(self.free_connections)        
         number_of_players = self.partie.number_of_players
+        print(self.free_connections)
         
 
 
         if (n_joueurs_attendus>0) and not test:
-            infos = [("<infos joueur='{}'> <message>En attente de tous les joueurs</message> </infos>#EOM".format(i)).encode() for i in range(number_of_players)]
+            infos = [("<infos joueur='{}'> <message>En attente de {}  joueurs avant de commencer.</message> </infos>#EOM".format(i,n_joueurs_attendus)).encode() 
+                     for i in range(number_of_players)]
             return infos
     
         dom = self.getXML()    
@@ -374,8 +377,14 @@ def serve(partie,test=False,port=12800):
                 
             else:
                 server.service_connection(key, mask,commands,infos)
+                # in case someone disconnects, send again the infos
+                
                 if len(commands)>0 : 
                     command,index = commands.pop(0) 
+                    if command=="CONNECTION_CLIENT_CLOSED":
+                        infos= server.getInfos()
+                        break
+                    
                     if "NOMMER" in command  :
                         i = command.find(" ")
                         _,nom = command[:i],command[i+1:]  
