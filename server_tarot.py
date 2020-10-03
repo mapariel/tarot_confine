@@ -402,7 +402,7 @@ def serve(partie,test=False,port=12800):
                       #     return "INCOMPLET"
                       server.phase.action(command,cartes)
                       
-                      serve.result = server.phase.result()
+                      server.result = server.phase.result()
                       phase2 = ph.search_phase(server.partie)
                       if type(phase2) != type(server.phase):
                           server.phase = phase2
