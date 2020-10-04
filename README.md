@@ -2,7 +2,7 @@
 Pour jouer au tarot, comme en vrai, avec ses amis en réseau.
 On peut jouer à 3, 4 ou à 5, avec appel du roi ou avec un mort.
 
-Vous pouvez télécharger une version exécutable pour Windows http://gofile.me/48Z1V/okkpsqKEF .
+Vous pouvez télécharger une version exécutable pour Windows http://gofile.me/48Z1V/4Gs4Q3Ht1 .
 
 ## Aspect technique
 Le code est testé avec Python 3.7.7, on a besoin des modules pysimplegui, pillow et numpy.
