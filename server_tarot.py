@@ -232,18 +232,34 @@ class Server():
             joueur.appendChild(les_noms)    
             
             # choices are added only to the prompted player
-            if True :
-                boolean = True
-                if not test:
-                    boolean = phase.prompt() == i
-                if  boolean:
-                    choices = dom.createElement("choices")
-                    for c,t in phase.choix():  #command and text
-                        choix = dom.createElement("choix")
-                        choix.setAttribute("commande",c)
-                        choix.appendChild(dom.createTextNode(t))
-                        choices.appendChild(choix)
+            if i in phase.choix() or test:
+                if test:
+                    ch=[]
+                    for k in range(partie.number_of_players):
+                        if k in phase.choix():
+                            ch = ch+phase.choix()[k] 
+                else:    
+                    ch = phase.choix()[i]
+                choices = dom.createElement("choices")
+                for c,t in ch:
+                    choix = dom.createElement("choix")
+                    choix.setAttribute("commande",c)
+                    choix.appendChild(dom.createTextNode(t))
+                    choices.appendChild(choix)
                     joueur.appendChild(choices)
+            
+            # if True :
+            #     boolean = True
+            #     if not test:
+            #         boolean = phase.prompt() == i
+            #     if  boolean:
+            #         choices = dom.createElement("choices")
+            #         for c,t in phase.choix():  #command and text
+            #             choix = dom.createElement("choix")
+            #             choix.setAttribute("commande",c)
+            #             choix.appendChild(dom.createTextNode(t))
+            #             choices.appendChild(choix)
+            #         joueur.appendChild(choices)
             
             
              

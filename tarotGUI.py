@@ -437,7 +437,7 @@ class Jeu():
         for i,choi in enumerate(self.infos['choix']):
             txt_choix = self.infos['choix'][i][1]
             for j,nom in enumerate(self.infos["noms"]):
-                txt_choix.replace("Joueur{}".format(j), nom)
+                txt_choix = txt_choix.replace("Joueur{}".format(j), nom)
             self.window["BOUTON"+str(i)].update(text=txt_choix,visible=True)
             if i==0 :
                 self.window["BOUTON"+str(i)].SetFocus()
@@ -584,14 +584,16 @@ if __name__ == '__main__':
             
             # management of the connection with the server 
             if "JOINDRE" in event:
-                host,port,nom =  window_connexion()
-                connexion_avec_serveur = connect_server(host,port,nom)
-                state = 2
-                menu_def  = get_menu_layout(state)
-                window['__NOM__'].update(value=nom)
-                window['__MENU__'].update(menu_def)
-                sg.popup("{} vous venez de rejoindre la partie sur le port {} de l'hôte {}.".format(nom,port,host))
-                msg["command"] = ("NOMMER {}#EOM".format(nom)).encode()
+                rep =  window_connexion()
+                if rep:
+                    host,port,nom = rep
+                    connexion_avec_serveur = connect_server(host,port,nom)
+                    state = 2
+                    menu_def  = get_menu_layout(state)
+                    window['__NOM__'].update(value=nom)
+                    window['__MENU__'].update(menu_def)
+                    sg.popup("{} vous venez de rejoindre la partie sur le port {} de l'hôte {}.".format(nom,port,host))
+                    msg["command"] = ("NOMMER {}#EOM".format(nom)).encode()
             
             elif "SUPPRIMER" in event :
                 msg["command"] = 'FIN#EOM'.encode()
@@ -685,7 +687,8 @@ if __name__ == '__main__':
                             window['__TAPIS__'].RelocateFigure(i,x,y) 
             elif event in ["__TAPIS__DOUBLE"]:
                 carte = canvas.find_withtag("current")
-                if len(carte) != 0 : 
+                if 'choix' in jeu.infos and len(jeu.infos['choix'])>0:
+                    # double click works only when the player can make a choice
                     window['BOUTON0'].Click()
                          
             elif event in ["__TAPIS__"]:

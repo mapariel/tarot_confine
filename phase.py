@@ -37,12 +37,14 @@ class Phase:
 
         """
         pass
+
+        
     def choix(self):
         pass
         """
-        The choices offered to the player
+        The choices offered to the players
         returns
-            list : tuple with teh command and the text for the player
+            dictionary key are player index and values are list of tuple with the command, the text and the index of the player that can make the choice
         """
     def prompt(self):
         """
@@ -83,7 +85,7 @@ class Couper(Phase):
         return "C'est à Joueur{} de couper le paquet".format(self.partie.heure)
     
     def choix(self):
-        return [("COUPER","couper le jeu")]
+        return {self.prompt() : [("COUPER","couper le jeu")] }
 
     def prompt(self):
         return self.partie.heure
@@ -108,7 +110,7 @@ class Donner(Phase):
     
     
     def choix(self):
-        return [("DONNER","donner le jeu")]
+        return {self.prompt() :[("DONNER","donner le jeu")] }
     def prompt(self):
         return self.partie.heure
     
@@ -135,7 +137,7 @@ class Encherir(Phase):
         if contrat >= Tarot.PASSE :
             retour = [(str(Tarot.PASSE),Tarot.LES_CONTRATS[Tarot.PASSE])]+retour
         # add 'passe'
-        return retour
+        return {self.prompt() :retour}
     def prompt(self):
         return self.partie.seconde
     def action(self,commande,cartes=""):
@@ -178,20 +180,20 @@ class Ecarter(Phase):
     def choix(self):
         contrat,joueur =  self.partie.get_contrat() 
         if contrat == Tarot.PASSE:
-            return [("RECOMMENCER","refaire une partie.")]
+            return {self.prompt() :[("RECOMMENCER","refaire une partie.")] }
         if self.partie.variante == Tarot.APPEL_AU_ROI and self.partie.roi_appele =="":
-            return [("APPELER_rtr","Le roi de pique."), 
+            return {self.prompt() :[("APPELER_rtr","Le roi de pique."), 
                     ("APPELER_rca","Le roi de carreau."), 
                     ("APPELER_rco","Le roi de coeur."),
                     ("APPELER_rtr","Le roi de trèfle."),
-                    ]
+                    ]}
         else :
             if contrat in [Tarot.PETITE,Tarot.GARDE]:
                 if len(self.partie.chien) == 0 :
-                    return [("ECARTER","écarter les cartes choisies.")] #.format(cards_as_string(self.partie.mains[joueur],triees=True))}
-                return [("RAMASSER_CHIEN","ramasser le chien")]
+                    return {self.prompt() :[("ECARTER","écarter les cartes choisies.")]} #.format(cards_as_string(self.partie.mains[joueur],triees=True))}
+                return {self.prompt() : [("RAMASSER_CHIEN","ramasser le chien")] }
             elif contrat in [Tarot.GARDE_SANS,Tarot.GARDE_CONTRE]:
-                return [("CHIEN_ECART","mettre le chien à l'écart.")]
+                return {self.prompt() :[("CHIEN_ECART","mettre le chien à l'écart.")]}
         
     def prompt(self):
         contrat,preneur =  self.partie.get_contrat() 
@@ -252,8 +254,30 @@ class Jouer(Phase):
     def message(self):
         pass
     def choix(self):
-        return [("JOUER","Jouer"),("ANNULER","annuler le coup")]  #.format(cards_as_string(self.partie.mains[self.partie.seconde]))}
+        """
+        The prompted player can play a card. The preceding player (if any) has the possibility to 
+        take his card back inorder to play another one.
+        """
+        partie = self.partie
+        retour = {self.prompt() :[("JOUER","Jouer"),]}
+        if not partie.pli[partie.minute]:
+            # none has played yet, there is no card to remove
+            return retour
         
+        if  partie.pli[partie.seconde]: # everyone has played
+            if len(partie.V)>0:   # it is not the first round
+                precedent = partie.precedent(partie.V[-1])
+            else :
+                precedent = partie.precedent(partie.minute)
+        else :
+            precedent = partie.precedent(partie.seconde)
+        if precedent == self.prompt():
+            retour[precedent].append(("ANNULER","annuler le coup"))
+        else :
+            retour[precedent] = [("ANNULER","annuler le coup")]
+        return retour   
+        
+
     def action(self,commande,cartes=""):
         if commande == "JOUER":
             if self.hasard :
@@ -286,9 +310,9 @@ class Conclure(Phase):
     def choix(self):
         contrat,preneur = self.partie.get_contrat()
         if self.state == 0 :
-            return [("VOIR","Voir la levée de Joueur{}.".format(preneur))]
+            return {self.prompt() :[("VOIR","Voir la levée de Joueur{}.".format(preneur))] }
         elif self.state == 1 :
-            return [("REJOUER","Refaire une partie")]
+            return {self.prompt() :[("REJOUER","Refaire une partie")]}
     def action(self,commande,cartes=""):
         if commande == "VOIR":
             self.state=1
