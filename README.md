@@ -1,3 +1,9 @@
+# Version WS
+
+I'll try to get a version that uses Websockets instead of "bare" sockets. First I'll need few changes on phase module...
+
+
+
 # Tarot confiné
 Pour jouer au tarot, comme en vrai, avec ses amis en réseau.
 On peut jouer à 3, 4 ou à 5, avec appel du roi ou avec un mort.
