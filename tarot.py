@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import numpy as np
 import csv
 
@@ -11,7 +14,7 @@ class Carte:
         self.points = float(infos[3])
         self.abr = infos[4]
     
-    def __str__(self):
+    def __repr__(self):
         return self.abr
     def __eq__(self,other):
         if not other : 
@@ -26,10 +29,11 @@ This class represents a game of tarot
 """
 class Tarot:
     # constantes de jeu
-    SANS = 0
-    APPEL_AU_ROI = 1
-    MORT = 2
-    LES_VARIANTES = {SANS:"",APPEL_AU_ROI:"avec appel du roi",MORT:"avec un mort"}
+    TROIS = 0
+    QUATRE = 1
+    APPEL_AU_ROI = 2
+    MORT = 3
+    LES_VARIANTES = {TROIS:"Jeu à trois",QUATRE:"Jeu à quatre",APPEL_AU_ROI:"avec appel du roi",MORT:"avec un mort"}
     
     PASSE = 1
     PETITE = 2
@@ -40,10 +44,10 @@ class Tarot:
     
     
     
-    def __init__(self,number_of_players,variante):
-        self.number_of_players = number_of_players
+    def __init__(self,variante):
+        self.number_of_players = 4
         self.paquet = np.array([])  
-        with open('cartes.csv', newline='') as csvfile:
+        with open('./cartes.csv', newline='') as csvfile:
                     reader = csv.reader(csvfile)
                     for line in reader:
                         carte = Carte(line)
@@ -53,10 +57,10 @@ class Tarot:
         self.heure = 0 # l'indice du donneur
         self.minute=1  # sous indice, celui qui a joué le premier (qui a entamé) 
         self.seconde = 1 # sous-sous-indice, désigne le prochain joueur
-        self.commencer(self.number_of_players,variante)
+        self.commencer(variante)
 
 
-    def commencer(self,n_joueurs,variante):
+    def commencer(self,variante):
         """
         Parametrise the game (number of players and variant). 
 
@@ -72,21 +76,20 @@ class Tarot:
         None.
 
         """
-        self.number_of_players = n_joueurs
+        self.variante = variante
+        if self.variante == Tarot.TROIS:
+            self.number_of_players = 3
+        elif self.variante == Tarot.QUATRE:
+            self.number_of_players = 4
+        else:
+            self.number_of_players = 5
+            
         self.coupe = False # le paquet n'est pas coupé
         # each player will have a main of cards
         self.mains = []
         for n in range(self.number_of_players):
             self.mains.append(np.array([])) 
-        
-        # checks variante and number_of_players are valid
-        if n_joueurs in (3,4):
-            self.variante = self.SANS
-        elif n_joueurs==5 :
-            if variante in (self.APPEL_AU_ROI,self.MORT) : 
-                self.variante = variante
-            else : self.variante = self.MORT    
-        
+               
         
         # puts minute and second accordingly to hour
         self.minute = self.suivant(self.heure)
@@ -108,19 +111,20 @@ class Tarot:
         self.contrats = np.array([-1]*self.number_of_players)
         self.levees = np.array([],dtype=np.int8)
         self.levees.shape = (0,self.number_of_players)
+        
         self.V = np.array([],dtype=np.int8) 
         self.chien = np.array([])
         self.ecart = np.array([])
         # the king to be called in case of variante = APPEL_AU_ROI
         self.roi_appele = ""
-    
+        self.game_over = False
         
     def recommencer(self):
         """
         Just call it to play a new game with the same parameters (number of players and variante)
 
         """
-        self.commencer(self.number_of_players,self.variante)
+        self.commencer(self.variante)
     
     def couper(self):
         self.coupe = True
@@ -286,6 +290,27 @@ class Tarot:
         """
         j = np.argmax(self.contrats)
         return self.contrats[j],j
+
+
+    def get_main(self,index_player):
+        """
+        gets the cards of one of the player,
+        formatted in a human readable way
+        """
+    
+        main = self.mains[index_player].copy()
+        if len(main)>0:
+            main = sorted(main,key = lambda x:x.valeur )
+            main = sorted(main,key = lambda x:x.famille )
+
+            familles = ["pique","coeur","carreau","trefle","atout"]  
+            chaine = ""
+            for f in familles:
+                noms = [carte.nom for carte in main if f in carte.famille]
+                if len(noms)!=0 : chaine = chaine+f+" : \t"+" ".join(noms)+"\n"
+            return chaine       
+
+
     
     
     def get_attaque_defense(self):
@@ -296,9 +321,9 @@ class Tarot:
         Returns
         -------
         attaque : numpy array of integers
-            index ot hte player in attaque.
+            index(es) of the player(s) in attaque.
         defense : numpy array of integers
-            index ot hte player in attaque..
+            indexes of the players in defense..
 
         """
         _,p = self.get_contrat()
@@ -542,7 +567,7 @@ class Tarot:
         Returns
         -------
         levee_attaque : numpy list of cards
-            cards of atttaque.
+            cards of attaque.
         levee_defense : numpy list of cards
             cards of defense.
         score : score of attaque    
@@ -599,12 +624,19 @@ class Tarot:
         
         if len(self.chien)>0 : 
             lots.append(self.chien) 
+        plis = [carte for carte in self.pli if carte]
+        if len(plis)>0:
+            lots.append(plis)
+        if len(self.ecart)>0:
+            lots.append(self.ecart)
+            self.ecart = np.array([])
         
         
-        lots = np.array(lots)
+        
+        lots = np.array(lots,dtype=object)
         rng = np.random.default_rng()
         rng.shuffle(lots)
         for lot in lots:
              self.paquet = np.append(self.paquet,lot)
         self.coupe = False
-        assert len(self.paquet)==78,"Le jeu ne contient pas 78 cartes !"
+        assert len(self.paquet)==78,"Le jeu  contient {} cartes au lieu de 78 !".format(len(self.paquet))
