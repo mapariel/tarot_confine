@@ -56,13 +56,12 @@ def fire_action(data):
     """
     global  result
     global active
-#    print(data)
 
     if data["commande"]=="COMMENCER":
         active=True
     elif data["commande"]=="PAUSE":
         active=False
-    elif data["commande"]=="VARIANTE":
+    elif data["commande"]=="SELECT_VARIANTE":
         variante = int(data["variante"])
         partie.ramasser()
         partie.commencer(variante)
@@ -70,7 +69,6 @@ def fire_action(data):
             if not j['websocket']:
                 JOUEURS.remove(j)
         nmax=partie.number_of_players
-        print("njoueurs:",nmax)
         n=len(JOUEURS)
         if n<nmax:
             for i in range(nmax-n):
@@ -94,15 +92,75 @@ def fire_action(data):
         result = phase.result()
         
         
+
+def getJson():
+    jsons = []
+    Joueur = [j['name'] for j in JOUEURS]
+    phase = ph.search_phase(partie)
+    n = len(JOUEURS)
+    for j in range(n):
+        dico={}
+        dico["names"]=[ j["name"] for j in JOUEURS   ]  
+        dico["joueur"]={}
+        dico["joueur"]["name"]=JOUEURS[j]["name"]
+        dico["joueur"]["token"]=JOUEURS[j]["token"]
+        if result:
+            resultat=result.format(Joueur=Joueur)
+        else:
+            resultat=""
+        if phase.message():
+            message = phase.message().format(Joueur=Joueur)
+        else:
+            message=""
         
+        dico["infos_phase"]={"result":resultat,"message":message}
+        dico["tapis"] = {}
+        dico["tapis"]["cartes"]=[c.abr if c else "" for c in phase.cartes_visibles() ]
+        if "Jouer" in str(phase):
+            dico["tapis"]["info_pli"]=[""]*n
+            dico["tapis"]["info_prise"]=[""]*n
+
+            dico["tapis"]["info_pli"][partie.seconde]="suivant"
+            dico["tapis"]["info_pli"][partie.minute]="entame"
+            
+            
+            if partie.variante==ta.Tarot.APPEL_AU_ROI:
+                index = partie.who_has_played(partie.roi_appele)
+                if index:
+                    dico["tapis"]["info_prise"][index]="appele" 
+            _,index_preneur=partie.get_contrat()
+            dico["tapis"]["info_prise"][index_preneur]="preneur"        
+            if partie.variante==ta.Tarot.MORT:
+                dico["tapis"]["info_prise"][partie.heure]="mort"        
+
+        main_triee = partie.mains[j].copy()
+        if len(main_triee)>0:
+                main_triee = sorted(main_triee,key = lambda x:x.valeur,reverse=True )
+                main_triee = sorted(main_triee,key = lambda x:x.famille )
+                familles = ["pique","carreau","trefle","coeur","atout"] 
+                abrs = [ [carte.abr  for carte in main_triee if f in carte.famille] for f in familles]
+                dico["main"]=abrs
+        
+        dico['selection'] ='unique'
+        if phase:
+             if 'Ecarter' in str(phase):
+                 dico['selection']='multiple'
+
+        
+        if j in phase.choix():
+            dico["choix"]=phase.choix()[j]
+        jsons.append(json.dumps(dico,indent=3))
+    return jsons   
 
     
 async def notify_players():
      """
      Sends the message to the players
      """
+  
+    
+    
      messages = []
-     phase=None
      if not active :
          n_conn=0
          connexions = [] #JOUEURS.copy()
@@ -124,7 +182,7 @@ async def notify_players():
              message = message+"\n Merci de communiquer aux autre joueurs leur token </pre>"
          else:
 # changer la variante (3,4 ou 5 joueurs)
-             message = message+"</pre><button type='button' class='command'   data-commande='COMMENCER' >commencer ou recommencer</button>"         
+             message = message+"</pre><button type='button'   id='commencer' >commencer ou recommencer</button>"         
          message = message+"""
 <div class='row'>
 <div class='col-lg-12'>
@@ -137,149 +195,27 @@ async def notify_players():
 <label for="appel">cinq (avec appel)</label><br> 
 <input type="radio" id='mort'  name="variante" value="3">
 <label for="mort">cinq (avec un mort)</label> <br> 
-<button type='button' class='command'   data-commande='VARIANTE' >changer le jeu</button>
+<button type='button' id='select_variante'>changer le jeu</button>
 </form>
 </div>
 </div>
 """           
-         messages.append(message)
+         mesjson = [json.dumps({"modalContent":message})]
          
          for j in range(1,partie.number_of_players):
-             messages.append("<pre>Partie en attente ...</pre>")
+             message=("<pre>Partie en attente ...</pre>")
+             mesjson.append(json.dumps({"modalContent":message}))    
          
      #########################
      ###### la partie est active 
      ##############################      
      else:
-        tapis=""	 
-        phase = ph.search_phase(partie)
-        Joueur = [j['name'] for j in JOUEURS]
-        
-        # message to introduce what is to do next (if needed)
-        
-        tapis="<div class='table-responsive'><table class='mx-auto'>" 
-        info_prise="<tr>"
-        info_pli="<tr>"
-        if 'Jouer' in str(phase):
-
-            for index  in range(len(JOUEURS)):
-                _,index_preneur = partie.get_contrat()
-                if index == partie.minute:
-                    info_pli = info_pli+"<td class='entame'>"
-                else:
-                    info_pli = info_pli+"<td>"
-                if index == partie.seconde:
-                    info_pli = info_pli+"<img width='20px' src='cartes/chevron2.png'>"
-                info_pli = info_pli+"</td>"
-                
-                if index == index_preneur:
-                    info_prise = info_prise+"<td class='preneur'/>"
-                elif partie.variante==ta.Tarot.MORT and index==partie.heure:
-                    info_prise = info_prise+"<td class='mort'/>"
-                elif partie.variante==ta.Tarot.APPEL_AU_ROI and partie.who_has_played(partie.roi_appele) and index==partie.who_has_played(partie.roi_appele)[0]:
-                            info_prise = info_prise+"<td class='roi_appele'/>"
-                else:
-                    info_prise = info_prise+"<td/>"
-            info_prise=info_prise+"</tr>"
-            info_pli=info_pli+"</tr>"
-                    
-                    
-        
-        if len(phase.cartes_visibles())>0:
-            if phase.cartes_visibles()==partie.pli:
-                # add a row with the name of the players
-                noms = "".join(["<td>{}</td>".format(j['name']) for j in JOUEURS])
-                tapis = tapis+info_prise+'<tr>'+noms+'</tr>'
-                
-            for c in  phase.cartes_visibles():
-                abr=""
-                if c:
-                    abr=c.abr
-                if c:
-                    tapis=tapis+"<td> <img class='carte' src='cartes/{}.png'/>".format(abr)
-                else :
-                    tapis=tapis+"<td> <img class='carte' src='cartes/dos.png'/>"
-        tapis=tapis+info_pli+"</table></div>" 
-            
-        mess = """
-        <div> 
-            <div class='row'>
-            <div class='form-inline'>
-            <div class="form-group">
-                <label for="name">Nom</label> 
-                <input  id='name' value='{name}'  data-token='{token}'  class='entry form-control'></input>
-                <button type='button' class='command btn btn-info'  data-commande='RENAME'>renommer</button> 
-            </div>
-            </div>
-            </div>
-        </div>
-        <div class='row vert_tapis'>
-            <div class='col-lg-12'>
-                <div  class="alert alert-primary" id='message'><pre>{result} \n {message} </pre> </div> 
-                <div  id='tapis'> {tapis} </div> 
-            </div>    
-        </div>
-        
-        <div class='row border'>
-        <div class='col-lg-3' id='choix'> {choix} </div> 
-        
-        <div class='col-lg-9' id='main'> {main} </div> 
-        </div>
-        """
-        for j in range(partie.number_of_players): 
-            main =""
-            main_triee = partie.mains[j].copy()
-            if len(main_triee)>0:
-                main_triee = sorted(main_triee,key = lambda x:x.valeur,reverse=True )
-                main_triee = sorted(main_triee,key = lambda x:x.famille )
-                familles = ["pique","carreau","trefle","coeur","atout"] 
-                for f in familles:
-                    abrs = ["<img class='carte main' data-abr='{}' src='cartes/{}.png'/>".format(carte.abr,carte.abr) 
-                          for carte in main_triee if f in carte.famille]
-                    if len(abrs)!=0 : main = main+"<div class='table-responsive'><table> <tr> <td>"+"<td>".join(abrs)+"</tr> </table></div>"
-                    
-            
-            choix=""
-            try:
-                choix = phase.choix()[j]
-                choix="\n".join(["<button class='btn btn-primary btn-block command' type='button'  data-commande={}>{}</button>".format(e,c) for e,c in choix])
-            except:
-                pass
-            
-            finally:
-                res=""
-                if result : 
-                    res=result
-                message_phase = ""
-                if phase.message():
-                    message_phase = phase.message()
-                messa=mess.format(name=JOUEURS[j]['name'],result=res,message=message_phase,
-                                  token=JOUEURS[j]['token']
-                                  ,tapis=tapis,choix=choix,main=main)
-                messa= messa.format(Joueur=Joueur)
-                messages.append(messa)   
-     if active: 
-         messages[0]=messages[0]+"<div class='row clearfix'><button type='button' class='command btn btn-warning float-right' data-commande='PAUSE'>Mettre le jeu en pause</button></div>"          
-     selection='unique'
-     if phase:
-         if 'Ecarter' in str(phase):
-             selection='multiple'
+              # next version, message will only be a table of json
+              mesjson = getJson()
      for j in range(len(JOUEURS)):
              websocket = JOUEURS[j]["websocket"]
-             mesjson = json.dumps({"htmlcontent":messages[j],'selection':selection})
              if websocket:
-                 await websocket.send(mesjson) 
-        
-        
-async def ask_token(websocket):
-    message = """
-<div class="form-inline">
-  token : <input  class="entry" />
-  <button type="button" class="command"   data-commande="token" >OK</button>   
-</div>     
-"""     
-    mesjson = json.dumps({"htmlcontent":message})
-    await websocket.send(mesjson) 
+                 await websocket.send(mesjson[j]) 
 
 
 
@@ -291,6 +227,7 @@ async def register(websocket,token):
         # correct token and noone else playing
         if JOUEURS[index]['websocket']==None:
             JOUEURS[index]['websocket'] =websocket
+
             await notify_players()
     finally :
         return
@@ -309,14 +246,10 @@ async def unregister(websocket):
 
 
 async def launch(websocket, path):
-    connectes = [JOUEURS[i]['websocket'] for i in range(partie.number_of_players) if JOUEURS[i]['websocket']]
-    if len(connectes)<partie.number_of_players:
-            await ask_token(websocket)       
     try:
-        #await websocket.send(state_event())
         async for message in websocket:
             data = json.loads(message)
-            if data["commande"]=="token":
+            if data["commande"]=="SEND_TOKEN":
                 token = data["entry"]
                 await register(websocket,token)
             elif data["commande"]=="RENAME":
@@ -326,11 +259,14 @@ async def launch(websocket, path):
                     index = tokens.index(token)
                     JOUEURS[index]['name']=data['entry']
                 finally:
-                    pass 
+                    pass            
             else :
                 fire_action(data)
-            await notify_players()    
-                                    
+            await notify_players()
+            sockets = [j["websocket"] for j in JOUEURS]
+            if not websocket in sockets:
+                phase = ph.search_phase(partie)
+                await websocket.send(getJson()[phase.prompt()])                         
 
     finally:
         await unregister(websocket)
