@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="utf-8"> 
+<meta property="og:title" content="Tarot confiné">
+<meta property="og:description" content="Jouez avec vos amis comme en vrai.">
+<meta property="og:image" content="logo.ico">
+<meta property="og:url" content="http:kotiboksi.i234.me/tarot">
+
+
+<title>Tarot confiné.</title>
+ 
+<!-- Latest compiled and minified CSS -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+<!-- jQuery library -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<!-- Popper JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+<!-- Latest compiled JavaScript -->
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script> 
+
+<style>
+	table td th {
+	    border : none;
+	}
+	td {
+	    text-align:center;
+	}
+	.carte {
+	   border-style:solid;
+	   border-color:white;
+	   width:80px;
+	}
+	.vert_tapis{
+		background-color:DarkOliveGreen;
+		border-color: FireBrick;
+	        border:10px;
+	}
+	#tapis td{
+		padding:10px;
+	}
+	#tapis{
+	   padding:20px;
+	   min-height:200px;
+	}
+	#message{
+	   padding:10px;
+	   min-height:50px;
+	}
+	
+	.selected {
+           border-color:  blue;
+        }
+        .entame{        
+        	background-image:url(cartes/chevron1.png); 
+        	background-position: center; 
+        	background-repeat:no-repeat;
+    		background-size: 20px;
+    		height:22px;
+        }
+        .suivant{        
+        	background-image:url(cartes/chevron2.png); 
+        	background-position: center; 
+        	background-repeat:no-repeat;
+    		background-size: 20px;
+    		height:22px;
+        }
+        
+       .preneur{        
+        	background-image:url(cartes/couronne1.png); 
+        	background-position: center; 
+        	background-repeat:no-repeat;
+    		background-size: 20px;
+    		height:22px;
+        }
+       .roi_appele{        
+        	background-image:url(cartes/couronne2.png); 
+        	background-position: center; 
+        	background-repeat:no-repeat;
+    		background-size: 20px;
+    		height:22px;
+        }
+       .mort{        
+        	background-image:url(cartes/mort.png); 
+        	background-position: center; 
+        	background-repeat:no-repeat;
+    		background-size: 20px;
+    		height:22px;
+        }
+        
+        .clignotant{
+			background-color: DarkOliveGreen;
+			animation-name: clign;
+			animation-duration: 0.2s;
+			animation-iteration-count : 3;
+		}
+		
+		@keyframes clign {
+			from {background-color: DarkOliveGreen;}
+			to {background-color: red;}
+		}	
+
+
+</style>
+    
+    
+
+	
+
+<script>
+    ws = new WebSocket("ws://localhost:6789");	
+  	$(document).ready(function(){
+  	
+		// shows the modal to ask for the token
+        $("#attenteModal").modal("show")
+
+  	
+		// when the users inserts his token to join the game
+		$("#token").click(function(){
+		           var token = $("#token_entry").val();  
+		           var mesjson = {commande:"SEND_TOKEN",entry: token}
+		           ws.send(JSON.stringify(mesjson))
+		})
+        
+		$(document).on("click","#commencer",function(){
+		           var token = $("#name").attr('data-token');  
+       			   var mesjson = {commande:"COMMENCER",token:token}
+                	$("#attenteModal").modal("hide")
+		           ws.send(JSON.stringify(mesjson))
+				   })
+    
+		$(document).on("click","#select_variante",function(){
+		           var token = $("#name").attr('data-token');  
+       			   var variante = $("form input[type='radio']:checked").val();
+		           var mesjson = {commande:"SELECT_VARIANTE",token:token,variante:variante}
+		           ws.send(JSON.stringify(mesjson))
+		})
+
+ 
+ 
+         // cards selected by the player
+		 $(document).on("click",".main",function(){
+    				if ($(this).is('.selected')){
+    					$(this).removeClass("selected");
+    				}
+    				else{ 
+    					if (data.selection=='unique') 
+	    					$(".selected").removeClass("selected");
+    					$(this).addClass("selected");
+    				}
+  			});
+  			
+  		
+    	 $(document).on("click",".command",function(){		 
+		           var token = $('#name').attr('data-token')	
+		           var commande = $(this).attr("data-commande") 
+		           var texte = $(".entry").val();  
+		           var abrValues = $('.selected').map(function() {
+				    return $(this).attr("data-abr");
+			    }).get();		        
+				 var abrs = abrValues.join();   
+				 var variante = $("form input[type='radio']:checked").val();
+				 var mesjson = {commande:commande,entry: texte,variante:variante,cartes:abrs,token:token } 	
+				 ws.send(JSON.stringify(mesjson));
+				 })
+
+        })       	
+
+
+
+
+
+
+		            
+
+		ws.onopen = function() {
+		          
+		          // Web Socket is connected, send data using send()
+		          // ws.send("Message to send");
+		          // alert("connexion réussie...");
+		};
+
+		ws.onclose = function() {
+		          
+		          // Web Socket is connected, send data using send()
+		          // ws.send("Message to send");
+		          alert("connexion fermée...");
+		};
+
+        ws.onmessage = function (event) {
+
+
+	        //
+			data = JSON.parse(event.data);
+
+    		 $(".command").click(function(){
+	 
+		           var token = $('#name').attr('data-token')	
+		           var commande = $(this).attr("data-commande") 
+		           var texte = $(".entry").val();  
+		           var abrValues = $('.selected').map(function() {
+				    return $(this).attr("data-abr");
+			    }).get();
+		           
+		           
+		           var abrs = abrValues.join();   
+		           var mesjson = {commande:commande,entry: texte,variante:variante,cartes:abrs,token:token } 	
+
+		           ws.send(JSON.stringify(mesjson));
+		        })
+
+
+			
+			if ("modalContent" in data){
+    			$('#modalContent').html(data.modalContent);
+    			$("#attenteModal").modal("show");
+
+    		 $(".command").click(function(){
+            	   $("#attenteModal").modal("hide"); 
+		 
+		           var token = $('#name').attr('data-token')	
+		           var commande = $(this).attr("data-commande") 
+		           var texte = $(".entry").val();  
+		           var abrValues = $('.selected').map(function() {
+				    return $(this).attr("data-abr");
+			    }).get();
+		           
+		           
+		           var abrs = abrValues.join();   
+			   var variante = $("form input[type='radio']:checked").val();
+		           var mesjson = {commande:commande,entry: texte,variante:variante,cartes:abrs,token:token } 	
+
+		           ws.send(JSON.stringify(mesjson));
+		        })
+
+    			
+			
+			}
+			else{
+				
+   			$("#attenteModal").modal("hide");
+	
+			
+			$('#message').html(data["infos_phase"]["result"]+data["infos_phase"]["message"])
+			$('#name').val(data["joueur"]["name"])
+			$('#name').attr("data-token",data.joueur.token)
+		        
+		        
+		        var line1=""   // info_prise
+		        var line2=""   // names
+		        var line3=""   // visible cards
+		        var line4=""   // info_pli
+
+    			if ("info_pli" in data.tapis){
+        			for (i in data.tapis.info_prise){
+            			line1 +="<td class='"+data.tapis.info_prise[i]+"'></td>"        			
+            			line2 +="<td>"+data.names[i]+"</td>" 
+            			line4 +="<td class='"+data.tapis.info_pli[i]+"'></td>"
+        			}   			
+    			}
+		        for (i in data.tapis.cartes) {
+     				 abr = "dos"
+     				 if (data.tapis.cartes[i]){
+         				 abr = data.tapis.cartes[i] 
+     				 }
+     				 line3 += "<td> <img class='carte' src='cartes/"+abr+".png'/></td>";
+    			}
+                var txt = "<div class='table-responsive'>\n<table class='mx-auto'>\n<tr>"+line1+"</tr><tr>"+line2+"</tr> <tr>"+line3+"</tr>  <tr>"+line4+"</tr>\n</table></div>"
+
+    			$('#tapis').html(txt)
+    			
+    			txt_choix=""
+    			
+    			// background of tapis is blinking when there is a choice available for the player
+    			if (data.choix){
+					console.log("clignote");
+					$("#tapis").addClass("clignotant");
+				}	
+				else{
+					console.log("pas clignote")
+					$("#tapis").removeClass("clignotant");
+				}	
+    			for (i in data.choix){
+    			     txt_choix = txt_choix+"<button class='btn btn-primary btn-block command' type='button'  data-commande="+data.choix[i][0]+">"+data.choix[i][1]+"</button>"
+    			}
+    			$('#choix').html(txt_choix)
+    			
+    			
+    			var txt_main="<div>"
+    			//var txt_main="<div class='table-responsive'><table>"
+    			for (i in data.main){
+        			txt_main = txt_main+"<tr>"
+        			for (j in data.main[i] ){
+            			var abr = data.main[i][j]
+            			txt_main = txt_main+"<img class='carte main' data-abr='"+abr+"' src='cartes/"+abr+".png'/>"
+            			//"<td> <img class='carte main' data-abr='"+abr+"' src='cartes/"+abr+".png'/>"
+        			}
+        			txt_main = txt_main+"</tr>"
+    			} 
+    			txt_main=txt_main+"</div>"
+    			//txt_main=txt_main+"</table></div>"
+    			
+    			$('#main').html(txt_main)
+		 }  // end else       
+		 };		 
+		 
+</script>        
+</head>
+
+
+<body>
+
+<div class="container-fluid" id="content">
+
+<div id='json'></div>
+
+        <div> 
+            <div class='row'>
+            <div class='form-inline'>
+            <div class="form-group">
+                <label for="name">Nom</label> 
+                <input  id='name' value=''  data-token=''  class='entry form-control'></input>
+                <button type='button' class='command btn btn-info'  data-commande='RENAME'>renommer</button> 
+            </div>
+            </div>
+            </div>
+        </div>
+        <div class='row vert_tapis'>
+            <div class='col-lg-12'>
+                <div  id='tapis'>  </div> 
+                <div  class="alert alert-primary" id='message'> </div> 
+            </div>    
+        </div>
+        
+        <div class='row border'>
+        <div class='col-lg-3' id='choix'>  </div> 
+        
+        <div class='col-lg-9' id='main'>  </div> 
+        </div> 
+
+
+
+</div>
+
+
+
+<!-- The Modal -->
+<div class="modal" id="attenteModal">
+  <div class="modal-dialog">
+    <div class="modal-content">
+
+      <!-- Modal Header -->
+      <div class="modal-header">
+        <h4 class="modal-title">Tarot Confiné</h4>
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+      </div>
+
+      
+      <div class="modal-body" id="modalContent">
+      <!-- Modal body -->
+           <h5 class="modal-title"> Pour participer, demandez le code à l'organisateur.</h5>
+          <div class="form-group">
+              <label for="token_entry">code :</label>  <input  class="form-control" id="token_entry" /> 
+          </div>
+          <button type="button" class="btn btn-primary" id="token"   >OK</button>     
+      </div>
+
+      <!-- Modal footer 
+      <div class="modal-footer">
+        <button type="button" class="btn btn-danger" data-dismiss="modal">Fermer</button>
+      </div>
+      -->
+      
+    </div>
+  </div>
+</div>
+
+
+    
+        
+</body></html>
