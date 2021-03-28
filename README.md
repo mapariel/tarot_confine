@@ -9,7 +9,6 @@ Une version de démonstration est visible sur http://tarot-confine.my-wan.de/dem
 Pour jouer au tarot, comme en vrai, avec ses amis en réseau.
 On peut jouer à 3, 4 ou à 5, avec appel du roi ou avec un mort.
 
-Vous pouvez télécharger une version exécutable pour Windows http://gofile.me/48Z1V/4Gs4Q3Ht1 .
 
 ## Aspect technique
 Le code est testé avec Python 3.7.7, on a besoin des modules websockets numpy et tabulate.
@@ -18,9 +17,7 @@ Le code est testé avec Python 3.7.7, on a besoin des modules websockets numpy e
 
 - Il faut lancer le server ``python server.py``
 
-- Quand on joint une partie, il faut indiquer l'adresse du serveur et le port (donnés par celui qui a créé la partie).
-
-Dans les deux cas, il faut indiquer son nom, que les autres joueurs verront, on peut modifier ce nom en cours de partie.
+- On accède au jeu en utilisant le client HTML
 
 ## La partie
 
