@@ -109,7 +109,7 @@
 	
 
 <script>
-    ws = new WebSocket("ws://localhost:6789");	
+    ws = new WebSocket("ws://tarot-confine.my-wan.de/");	
   	$(document).ready(function(){
   	
 		// shows the modal to ask for the token
@@ -122,6 +122,11 @@
 		           var mesjson = {commande:"SEND_TOKEN",entry: token}
 		           ws.send(JSON.stringify(mesjson))
 		})
+		// just to test the app or to observe a game
+		$("#fermer").click(function(){
+			mesjson = {commande:"SEND_TOKEN",entry:"None"}
+			ws.send(JSON.stringify(mesjson)); })
+		
         
 		$(document).on("click","#commencer",function(){
 		           var token = $("#name").attr('data-token');  
@@ -366,11 +371,11 @@
           <button type="button" class="btn btn-primary" id="token"   >OK</button>     
       </div>
 
-      <!-- Modal footer 
+      <!-- Modal footer -->
       <div class="modal-footer">
-        <button type="button" class="btn btn-danger" data-dismiss="modal">Fermer</button>
+          <button type="button" id="fermer" class="btn btn-danger" data-dismiss="modal">Je n'ai pas de code</button> 
       </div>
-      -->
+      
       
     </div>
   </div>

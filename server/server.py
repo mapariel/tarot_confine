@@ -24,6 +24,7 @@ partie = ta.Tarot(ta.Tarot.TROIS)
 result = ""  # le resultat de la phase de jeu précédente
 
 JOUEURS = []
+OBSERVATEURS = [] # to keep track of who is watching the game
 
 def get_token():
     return str(secrets.choice(range(1001,9999)))
@@ -96,16 +97,24 @@ def fire_action(data):
         
 
 def getJson():
+    """
+    To get the informations about the game
+    return :
+        jsons : array of json dictionaries, one for each player, and one that only contains info about the game
+        (for an observer)
+    """
     jsons = []
     Joueur = [j['name'] for j in JOUEURS]
     phase = ph.search_phase(partie)
     n = len(JOUEURS)
-    for j in range(n):
+    for j in range(n+1):
         dico={}
-        dico["names"]=[ j["name"] for j in JOUEURS   ]  
+        dico["names"]=[ joueur["name"] for joueur in JOUEURS   ]  
         dico["joueur"]={}
-        dico["joueur"]["name"]=JOUEURS[j]["name"]
-        dico["joueur"]["token"]=JOUEURS[j]["token"]
+        # only for the actual players
+        if j<n:
+            dico["joueur"]["name"]=JOUEURS[j]["name"]
+            dico["joueur"]["token"]=JOUEURS[j]["token"]
         if result:
             resultat=result.format(Joueur=Joueur)
         else:
@@ -134,14 +143,15 @@ def getJson():
             dico["tapis"]["info_prise"][index_preneur]="preneur"        
             if partie.variante==ta.Tarot.MORT:
                 dico["tapis"]["info_prise"][partie.heure]="mort"        
-
-        main_triee = partie.mains[j].copy()
-        if len(main_triee)>0:
-                main_triee = sorted(main_triee,key = lambda x:x.valeur,reverse=True )
-                main_triee = sorted(main_triee,key = lambda x:x.famille )
-                familles = ["pique","carreau","trefle","coeur","atout"] 
-                abrs = [ [carte.abr  for carte in main_triee if f in carte.famille] for f in familles]
-                dico["main"]=abrs
+       # only for the actual players              
+        if j<n:        
+            main_triee = partie.mains[j].copy()
+            if len(main_triee)>0:
+                    main_triee = sorted(main_triee,key = lambda x:x.valeur,reverse=True )
+                    main_triee = sorted(main_triee,key = lambda x:x.famille )
+                    familles = ["pique","carreau","trefle","coeur","atout"] 
+                    abrs = [ [carte.abr  for carte in main_triee if f in carte.famille] for f in familles]
+                    dico["main"]=abrs
         
         dico['selection'] ='unique'
         if phase:
@@ -217,15 +227,27 @@ async def notify_players():
              websocket = JOUEURS[j]["websocket"]
              if websocket:
                  await websocket.send(mesjson[j]) 
+                 
+     for ws in OBSERVATEURS:
+         print("obs: ",ws)
+
+         if JOUEURS[0]["websocket"]:  #there is a masterplayer
+             await ws.send(getJson()[-1])
+         else:
+             phase = ph.search_phase(partie)
+             await ws.send(getJson()[phase.prompt()])
+             
+                        
 
 
 
 async def register(websocket,token):
+    # gets the list of the tokens
     tokens = [j['token'] for j in JOUEURS]
     try:
         index = tokens.index(token)
         # the player has the right to play
-        # correct token and noone else playing
+        # correct token and no one else already playing with this token
         if JOUEURS[index]['websocket']==None:
             JOUEURS[index]['websocket'] =websocket
 
@@ -235,24 +257,33 @@ async def register(websocket,token):
 
 
 async def unregister(websocket):
+    """
+    returns :
+        was_player : tells if the unregitered socket was a player 
+    """
     sockets = [j['websocket'] for j in JOUEURS ]
     global active
+    was_player = False
     try:
         index = sockets.index(websocket)
         JOUEURS[index]['websocket']=None
         active=False
+        was_player  =True
         await notify_players()
     finally:
-        return 
+        return was_player
 
 
 async def launch(websocket, path):
     try:
+        # everytime a message comes from a client
         async for message in websocket:
             data = json.loads(message)
+            # the client has sent a token to take part to the game 
             if data["commande"]=="SEND_TOKEN":
                 token = data["entry"]
                 await register(websocket,token)
+            # the client has asked to change his name
             elif data["commande"]=="RENAME":
                 token = data["token"]
                 tokens = [j['token'] for j in JOUEURS]
@@ -261,22 +292,28 @@ async def launch(websocket, path):
                     JOUEURS[index]['name']=data['entry']
                 finally:
                     pass            
+            # otherwise the message is sent to the game
             else :
                 fire_action(data)
-            await notify_players()
             sockets = [j["websocket"] for j in JOUEURS]
-            if not websocket in sockets:
-                phase = ph.search_phase(partie)
-                await websocket.send(getJson()[phase.prompt()])                         
+            if not websocket in sockets and not websocket in OBSERVATEURS:
+                print("observer added")
+                OBSERVATEURS.append(websocket)
+
+            await notify_players()
+
+                    
 
     finally:
-        await unregister(websocket)
+        was_player = await unregister(websocket)
+        if not was_player:
+            OBSERVATEURS.remove(websocket)
         
 # first argument is the port (usually 6789), second is the password for the organizer
 if __name__ == "__main__":
     create_joueurs(partie.number_of_players)
-    JOUEURS[0]['token']=sys.argv[2]
+    JOUEURS[0]['token']='masterplayer'
     
-    start_server = websockets.serve(launch,None,sys.argv[1])
+    start_server = websockets.serve(launch,None,6789)
     asyncio.get_event_loop().run_until_complete(start_server)
     asyncio.get_event_loop().run_forever()
