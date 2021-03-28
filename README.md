@@ -1,8 +1,8 @@
 # Version WS
 
-This uses Websockets instead of "bare" sockets. First I'll need few changes on phase module...
+This uses Websockets instead of "bare" sockets. One big interest is to be able to use an HTML client.
 
-Une version de démonstration est visible sur http://tarot-confine.my-wan.de/demo
+You can test the app on http://tarot-confine.my-wan.de/demo
 
 
 # Tarot confiné
