@@ -17,11 +17,18 @@ Le code est testé avec Python 3.7.7, on a besoin des modules websockets numpy e
 
 - Il faut lancer le server ``python server.py``. Le server est accessible sur la machine locale sur le port 6789. 
 
-- On accède au jeu en utilisant le client HTML
+- On accède au jeu en utilisant le client HTML. Si on souhaite accepter des clients en dehors du réseau local, il faut changer l'hôte à la ligne 112.
+Le client s'adapte à l'écran du joueur, on peut joueur sur ordinateur ou bien sur smartphone).
 
 ## La partie
 
+Quand on charge la page du client, le jeu demande un code. Il faut saisir ``masterplayer`` pour être l'organisateur de la partie. L'organisateur peut changer le type de partie (3,4 ou 5 joueurs) et a connaissance des codes à communiquer aux autres joueurs. 
+
+Si on ne saisit pas de code, on peut devenir observateur de la partie. En l'absence d'organisateur, on accède à une partie test, où l'on joue tour à tour le rôle des différents joueurs, ce qui permet de tester l'interface.
+
+
 Ensuite le jeu démarre. Chaque joueur se voit proposer une ou des actions possibles quand c'est son tour.
+
 Pendant le jeu, des icônes désigne qui à qui est le tour de jouer, qui a entamé, qui a pris. Ainsi éventuellement qui est le mort ou bien qui a joué le roi qui a été appelé.
 
 Bon jeu !
