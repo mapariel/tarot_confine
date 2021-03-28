@@ -15,7 +15,7 @@ Le code est testé avec Python 3.7.7, on a besoin des modules websockets numpy e
 
 ## Préparation de la partie
 
-- Il faut lancer le server ``python server.py``
+- Il faut lancer le server ``python server.py``. Le server est accessible sur la machine locale sur le port 6789. 
 
 - On accède au jeu en utilisant le client HTML
 
