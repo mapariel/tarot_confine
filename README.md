@@ -1,3 +1,9 @@
+# :warning: important :warning:
+
+This version is not the most recent one. Please visit https://github.com/mapariel/tarot_confine/tree/wsversion 
+The newer version uses python's websockets library, with the big advantage that the client is an HTML client. Hence it can be played on any device (computer, tablet or phone). 
+
+
 # Tarot confiné
 Pour jouer au tarot, comme en vrai, avec ses amis en réseau.
 On peut jouer à 3, 4 ou à 5, avec appel du roi ou avec un mort.
