@@ -440,6 +440,14 @@ class Tarot:
             return True
 
 
+         # in case the game is over, don't wait to put the pli on levees
+        if len(self.mains[self.minute])==0 and self.pli[self.seconde]:
+                self.levees = np.vstack((self.levees,self.pli))
+                self.V = np.append(self.V,self.seconde)
+                self.pli = self.create_pli()
+                return True
+
+
         # gets (and remove from it) the card from the main of the player,
         main = self.mains[self.seconde] 
         cartes_abr = [carte.abr for carte in main ]
@@ -496,11 +504,11 @@ class Tarot:
             self.minute = joueur_gagnant
             self.seconde = joueur_gagnant
             
-            # in case the game is over, don't wait to put the pli on levees
-            if len(self.mains[joueur_gagnant])==0 :
-                self.levees = np.vstack((self.levees,self.pli))
-                self.V = np.append(self.V,self.seconde)
-                self.pli = self.create_pli()
+#            # in case the game is over, don't wait to put the pli on levees
+#            if len(self.mains[joueur_gagnant])==0 :
+#                self.levees = np.vstack((self.levees,self.pli))
+#                self.V = np.append(self.V,self.seconde)
+#                self.pli = self.create_pli()
 
                 
             

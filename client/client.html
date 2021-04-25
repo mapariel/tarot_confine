@@ -109,7 +109,10 @@
 	
 
 <script>
-    ws = new WebSocket("ws://tarot-confine.my-wan.de/");	
+	// websocket url when server is launched locally
+	ws = new WebSocket("ws://localhost:6789")
+	//ws = new WebSocket("ws://localhost:6789");
+    //ws = new WebSocket("ws://tarot-confine.my-wan.de/");	
   	$(document).ready(function(){
   	
 		// shows the modal to ask for the token
@@ -257,22 +260,36 @@
 		        var line3=""   // visible cards
 		        var line4=""   // info_pli
 
-    			if ("info_pli" in data.tapis){
+			// during the game phase the visible cards are in a table
+    		if ("info_pli" in data.tapis){
         			for (i in data.tapis.info_prise){
             			line1 +="<td class='"+data.tapis.info_prise[i]+"'></td>"        			
             			line2 +="<td>"+data.names[i]+"</td>" 
             			line4 +="<td class='"+data.tapis.info_pli[i]+"'></td>"
         			}   			
-    			}
+    			
 		        for (i in data.tapis.cartes) {
-     				 abr = "dos"
+     				 abr = "empty"
      				 if (data.tapis.cartes[i]){
          				 abr = data.tapis.cartes[i] 
      				 }
      				 line3 += "<td> <img class='carte' src='cartes/"+abr+".png'/></td>";
     			}
                 var txt = "<div class='table-responsive'>\n<table class='mx-auto'>\n<tr>"+line1+"</tr><tr>"+line2+"</tr> <tr>"+line3+"</tr>  <tr>"+line4+"</tr>\n</table></div>"
+			}
+			else{
 
+				var txt="<div style='text-align:center'>"
+				for (i in data.tapis.cartes) {
+	     				 abr = "dos"
+	     				 if (data.tapis.cartes[i]){
+		 				 abr = data.tapis.cartes[i] 
+	     				 }
+	     				 txt += "<img class='carte' style='display:inline-block' src='cartes/"+abr+".png'/>";
+	    			}
+	    			txt = txt+"</div>"
+   			}	
+			
     			$('#tapis').html(txt)
     			
     			txt_choix=""
@@ -299,7 +316,7 @@
         			for (j in data.main[i] ){
             			var abr = data.main[i][j]
             			txt_main = txt_main+"<img class='carte main' data-abr='"+abr+"' src='cartes/"+abr+".png'/>"
-            			//"<td> <img class='carte main' data-abr='"+abr+"' src='cartes/"+abr+".png'/>"
+            			//"<td> <img class='carte main' data-abr='"+abr+"' src='"+abr+".png'/>"
         			}
         			txt_main = txt_main+"</tr>"
     			} 

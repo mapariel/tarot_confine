@@ -126,11 +126,11 @@ def getJson():
         
         dico["infos_phase"]={"result":resultat,"message":message}
         dico["tapis"] = {}
+        # when there is no cards here, shows the back of a card
         dico["tapis"]["cartes"]=[c.abr if c else "" for c in phase.cartes_visibles() ]
         if "Jouer" in str(phase):
             dico["tapis"]["info_pli"]=[""]*n
             dico["tapis"]["info_prise"]=[""]*n
-
             dico["tapis"]["info_pli"][partie.seconde]="suivant"
             dico["tapis"]["info_pli"][partie.minute]="entame"
             
@@ -231,7 +231,7 @@ async def notify_players():
      for ws in OBSERVATEURS:
          print("obs: ",ws)
 
-         if JOUEURS[0]["websocket"]:  #there is a masterplayer
+         if JOUEURS[0]["websocket"]:  #there is a master player
              await ws.send(getJson()[-1])
          else:
              phase = ph.search_phase(partie)
@@ -312,7 +312,7 @@ async def launch(websocket, path):
 # first argument is the port (usually 6789), second is the password for the organizer
 if __name__ == "__main__":
     create_joueurs(partie.number_of_players)
-    JOUEURS[0]['token']='masterplayer'
+    JOUEURS[0]['token']="masterplayer"
     
     start_server = websockets.serve(launch,None,6789)
     asyncio.get_event_loop().run_until_complete(start_server)

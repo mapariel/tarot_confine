@@ -258,8 +258,11 @@ class Ramasser_chien(Phase):
 
 
     def cartes_visibles(self):
-        return self.partie.chien
-
+        contrat,preneur =  self.partie.get_contrat() 
+        if contrat < Tarot.GARDE_SANS:
+            return self.partie.chien
+        else:
+            return [None]*self.partie.taille_chien
         
     def action(self,commande,cartes=""):
         if commande == "RECOMMENCER":
@@ -329,6 +332,11 @@ class Jouer(Phase):
         take his card back inorder to play another one.
         """
         partie = self.partie
+        # checks is the game is over, there is no card to play, only to fetch the last pli.
+        if len(partie.mains[partie.minute])==0 and partie.pli[partie.seconde]:
+            retour = {self.prompt() :[("JOUER","Ramasser le dernier pli."),]}
+            return retour
+        
         retour = {self.prompt() :[("JOUER","Jouer"),]}
         if not partie.pli[partie.minute]:
             # none has played yet, there is no card to remove
