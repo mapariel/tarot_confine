@@ -2,7 +2,6 @@
 
 This version uses Websockets instead of "bare" sockets. One big interest is to be able to use an HTML client.
 
-You can test the app on http://tarot-confine.my-wan.de
 
 
 # Tarot confiné
