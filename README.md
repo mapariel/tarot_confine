@@ -4,6 +4,9 @@ This version uses Websockets instead of "bare" sockets. One big interest is to b
 
 You can test the client at https://tarot-confine.my-wan.de/
 
+Tarot is quite popular in France, that's why the programme, and the explications below, are in French.
+
+
 # Tarot confiné
 Pour jouer au tarot, comme en vrai, avec ses amis en réseau.
 On peut jouer à 3, 4 ou à 5, avec appel du roi ou avec un mort.
