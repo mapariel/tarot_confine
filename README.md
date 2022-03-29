@@ -1,8 +1,8 @@
 # Version WS
 
-This version uses Websockets instead of "bare" sockets. One big interest is to be able to use an HTML client.
+This version uses Websockets so that we are able to use an HTML client.
 
-You can test the client at https://tarot-confine.my-wan.de/
+You can test the client at https://tarot-confine.my-wan.de/   (and the code ``masterplayer`` `if you don't want to play alone)
 
 Tarot is quite popular in France, that's why the programme, and the explications below, are in French.
 
