@@ -2,7 +2,7 @@
 
 This version uses Websockets so that we are able to use an HTML client.
 
-You can test the client at https://mapariel.asuscomm.com/tarot   (and the code ``masterplayer`` if you don't want to play alone)
+You can test the client at https://mapariel.asuscomm.com/tarot/   (and the code ``masterplayer`` if you don't want to play alone)
 
 Tarot is quite popular in France, that's why the programme, and the explications below, are in French.
 
